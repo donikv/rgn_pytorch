@@ -33,8 +33,8 @@ def calculate_dihedrals(p, alphabet):
     return np.arctan2(y_coords, x_coords)
 
 
-def calculate_coordinates(dihedral, coordinates, r=BOND_LENGTHS, theta=BOND_ANGLES):
-    # type: (ndarray, ndarray, ndarray, ndarray) -> (ndarray)
+def calculate_coordinates(dihedral, r=BOND_LENGTHS, theta=BOND_ANGLES):
+    # type: (ndarray, ndarray, ndarray) -> (ndarray)
     """ Takes triplets of dihedral angles (omega, phi, psi) and returns 3D points ready for use in
         reconstruction of coordinates. Bond lengths and angles are based on idealized averages.
 
@@ -136,3 +136,48 @@ def calculate_coordinates(dihedral, coordinates, r=BOND_LENGTHS, theta=BOND_ANGL
     coords = np.pad(coords_trans[:s - 1], [[1, 0], [0, 0], [0, 0]])  # [NUM_STEPS x NUM_DIHEDRALS, BATCH_SIZE, NUM_DIMENSIONS]
 
     return coords
+
+
+def drmsd(u, v, weights=None):
+    """ Computes the dRMSD of two tensors of vectors.
+
+        Vectors are assumed to be in the third dimension. Op is done element-wise over batch.
+
+    Args:
+        u, v:    [NUM_STEPS, BATCH_SIZE, NUM_DIMENSIONS]
+        weights: [NUM_STEPS, NUM_STEPS, BATCH_SIZE]
+
+    Returns:
+                 [BATCH_SIZE]
+    """
+
+    diffs = pairwise_distance(u) - pairwise_distance(v)  # [NUM_STEPS, NUM_STEPS, BATCH_SIZE]
+
+    input_tensor_sq = np.square(diffs)
+    input_tensor_sq = input_tensor_sq #* weights
+
+    norms = np.sqrt(np.reduce_sum(input_tensor_sq, axis=[1, 2]))  # [NUM_STEPS, NUM_STEPS, BATCH_SIZE]
+
+    return norms
+
+
+def pairwise_distance(u):
+    """ Computes the pairwise distance (l2 norm) between all vectors in the tensor.
+
+        Vectors are assumed to be in the third dimension. Op is done element-wise over batch.
+
+    Args:
+        u: [NUM_STEPS, BATCH_SIZE, NUM_DIMENSIONS]
+
+    Returns:
+           [NUM_STEPS, NUM_STEPS, BATCH_SIZE]
+
+    """
+    diffs = u - np.expand_dims(u, 1)  # [NUM_STEPS, NUM_STEPS, BATCH_SIZE, NUM_DIMENSIONS]
+    reduction_indices = [3]
+
+    input_tensor_sq = np.square(diffs)
+
+    norms = np.sqrt(np.reduce_sum(input_tensor_sq, axis=reduction_indices))  # [NUM_STEPS, NUM_STEPS, BATCH_SIZE]
+
+    return norms
