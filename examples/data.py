@@ -89,7 +89,7 @@ for i in range(len(ids)):
     xyzi = np.stack([c for c in xi], axis=1) / 100  # have to scale by 100 to match PDB
 
     # lastly convert the mask to indices
-    msk_idx = np.where(np.array(list(masks[i])) == '+')[0]
+    msk_idx = np.map(np.array(list(masks[i])) == '+')[0]
 
     # bracket id or get "setting an array element with a sequence"
     zt = np.array([[id], seq, pssmi, xyzi, msk_idx])
@@ -103,9 +103,12 @@ for i in range(len(ids)):
         bc.flush()
 
 # %%
-
+from pathlib import Path
+home = str(Path.home())
+pn_path = home + '/Downloads/casp7/casp7/testing'
+# pn_path = os.curdir + '/../rgn_pytorch/data/text_sample'
 dataset = ProteinNetDataset(pn_path)
-trn_data = DataLoader(dataset)  # , batch_size=32, shuffle=True, collate_fn=sequence_collate)
+trn_data = DataLoader(dataset, batch_size=32, shuffle=True)
 
 for b_id, data in enumerate(trn_data):
     print(data['sequence'].shape)

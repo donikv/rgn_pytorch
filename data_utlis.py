@@ -37,7 +37,7 @@ def load_data(pn_path):
     coords = []
     masks = ['init', '/n']
     id_next, pri_next, ev_next, ter_next, msk_next = False, False, False, False, False
-    with open(pn_path + 'text_sample') as fp:
+    with open(pn_path) as fp:
         for line in tqdm(iter(fp.readline, '')):
             if id_next:
                 ids.append(line[:-1])
@@ -95,7 +95,7 @@ def load_data(pn_path):
         xyzi = np.stack([c for c in xi], axis=1) / 100  # have to scale by 100 to match PDB
 
         # lastly convert the mask to indices
-        msk_idx = np.where(np.array(list(masks[i])) == '+')[0]
+        msk_idx = np.array(list(map(lambda x: x[0] if x[1] == '+' else 0, enumerate(masks[i]))))
 
         # bracket id or get "setting an array element with a sequence"
         zt = np.array([[id], seq, pssmi, xyzi, msk_idx])
@@ -105,17 +105,55 @@ def load_data(pn_path):
 
 def encode_protein_padded(sequence, max_len, protein_names=residue_letter_codes):
     vocab = ['<pad>'] + sorted(set([char for char in residue_letter_codes.values()]))
-    print(vocab)
+
     vectorized_seq = [vocab.index(tok) for tok in sequence]
     embed = Embedding(len(vocab), len(vocab))
-    seq_tensor = Variable(torch.zeros(max_len)).long()
-    seq_tensor[:len(vectorized_seq)] = LongTensor(seq_tensor)
-    return embed(seq_tensor).detach().numpy()
+    seq_tensor = Variable(torch.zeros((1, max_len))).long()
+    print(seq_tensor.shape)
+    seq_tensor[0, :len(vectorized_seq)] = LongTensor(seq_tensor)
+    return embed(seq_tensor).detach().numpy()[0]
+
+
+def pad_and_embed(data):
+    seqs = list(map(lambda x: x[1], data))
+    pssms = list(map(lambda x: x[2], data))
+    coords = list(map(lambda x: x[3], data))
+    mask = list(map(lambda x: x[4], data))
+
+    vocab = ['<pad>'] + sorted(set([char for char in residue_letter_codes.values()]))
+    vectorized_seqs = [[vocab.index(tok) for tok in seq] for seq in seqs]
+
+    embed = Embedding(len(vocab), len(vocab))
+
+    seq_lengths = LongTensor(list(map(len, vectorized_seqs)))
+    seq_tensor = Variable(torch.zeros((len(vectorized_seqs), seq_lengths.max()))).long()
+    extended_pssm = np.zeros((len(vectorized_seqs), seq_lengths.max(), pssms[0].shape[1]))
+    extended_coords = np.zeros((len(vectorized_seqs), seq_lengths.max()*3, 3))
+    extended_mask = np.zeros((len(vectorized_seqs), seq_lengths.max()))
+
+    for idx, (seq, seqlen) in enumerate(zip(vectorized_seqs, seq_lengths)):
+        seq_tensor[idx, :seqlen] = LongTensor(seq)
+        extended_pssm[idx, :seqlen] = pssms[idx]
+        extended_coords[idx, :seqlen*3] = coords[idx]
+        extended_mask[idx, :seqlen] = mask[idx]
+
+    # sort data and new encoded sequences by length, possibly not needed
+    # seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)
+    # seq_tensor = seq_tensor[perm_idx]
+    # data = data[perm_idx]
+
+    embedded_seq_tensor = embed(seq_tensor)
+    for idx, (seq, seqlen) in enumerate(zip(embedded_seq_tensor, data)):
+        data[idx][1] = embedded_seq_tensor[idx].detach().numpy()
+        data[idx][2] = extended_pssm[idx]
+        data[idx][3] = extended_coords[idx]
+        data[idx][4] = extended_mask[idx]
+    return data
 
 
 class ProteinNetDataset(Dataset):
     def __init__(self, proteinnet_path):
-        self.data = load_data(proteinnet_path)
+        self.data = pad_and_embed(load_data(proteinnet_path))
         self.lens = LongTensor(list(map(lambda x: len(x[1]), self.data)))
         self.max_len = self.lens.max()
 
@@ -125,8 +163,8 @@ class ProteinNetDataset(Dataset):
     def __getitem__(self, idx):
         name, sequence, pssm, coords, mask = self.data[idx]
         length = len(sequence)
-        sequence_vec = encode_protein_padded(sequence, self.max_len)
-        seq_pssm = np.concatenate([sequence_vec, pssm], axis=1)
+        #sequence_vec = encode_protein_padded(sequence, self.max_len)
+        seq_pssm = np.concatenate([sequence, pssm], axis=1)
 
         sample = {'name': name,
                   'sequence': seq_pssm,
