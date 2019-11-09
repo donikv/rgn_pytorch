@@ -2,6 +2,7 @@ import os
 import numpy as np
 from io import StringIO
 
+from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import bcolz
@@ -112,4 +113,5 @@ trn_data = DataLoader(dataset, batch_size=32, shuffle=True)
 
 for b_id, data in enumerate(trn_data):
     print(data['sequence'].shape)
-    print(data['coords'].shape)
+    packed = pack_padded_sequence(data['sequence'], list(map(len, data['sequence'])), batch_first=True)
+    print(packed)

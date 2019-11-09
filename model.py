@@ -1,9 +1,13 @@
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.optim.adagrad as Adagrad
 import numpy as np
+from torch.autograd import Variable
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.utils.data import DataLoader
 
 from rgn_pytorch.data_utlis import ProteinNetDataset
@@ -11,16 +15,22 @@ from rgn_pytorch.geometric_ops import *
 
 
 class Angularization(nn.Module):
-    def __init__(self, d_in=800, dih_out=3, linear_out=800, alphabet_size=20):
+    def __init__(self, d_in=800, dih_out=3, linear_out=20, alphabet_size=20):
         super(Angularization, self).__init__()
         self.linear_layer = nn.Linear(2 * d_in, linear_out, bias=True)
         self.softmax_layer = nn.Softmax()
         self.alphabet = torch.torch.FloatTensor(alphabet_size, dih_out).uniform_(-np.pi, np.pi)
 
+        self.model = nn.Sequential(OrderedDict([
+            ('LINEAR', nn.Linear(2 * d_in, linear_out, bias=True)),
+            ('SOFTMAX', nn.Softmax(dim=1))
+        ]))
+
     def forward(self, x):
         lin_out = self.linear_layer(x)
         softmax_out = self.softmax_layer(lin_out)
-        ang_out = calculate_dihedrals(softmax_out, self.alphabet)
+        out = self.model(x)
+        ang_out = calculate_dihedrals(out, self.alphabet)
 
         return ang_out
 
@@ -46,34 +56,53 @@ class RGN(nn.Module):
         super(RGN, self).__init__()
         self.lstm_layers = []
         self.num_layers = num_layers
+        self.hidden_size = h
         i = 0
         while i < num_layers:
             if i == 0:
                 self.lstm_layers.append(nn.LSTM(d_in, hidden_size=h, bidirectional=True))
             else:
                 self.lstm_layers.append(nn.LSTM(2 * h, hidden_size=h, bidirectional=True))
-        self.angularization_layer = Angularization(alphabet_size=alphabet_size)
+            i += 1
+        self.angularization_layer = Angularization(d_in=h, dih_out=3, alphabet_size=alphabet_size)
 
         self.error = dRMSD()
 
+        self.model = nn.Sequential(OrderedDict([
+            ('LSTM1', nn.LSTM(d_in, hidden_size=h, bidirectional=True)),
+            ('LSTM2', nn.LSTM(h * 2, hidden_size=h, bidirectional=True)),
+            # ('ANGULAR', self.angularization_layer)
+        ]))
+
+        self.lstm = nn.LSTM(d_in, h, num_layers, bidirectional=True)
+
     def forward(self, x):
-        lstm_out = x
-        for lstm in self.lstm_layers:
-            lstm_out = lstm(lstm_out)
+        lens = list(map(len, x))
+        batch_sz = len(lens)
+        x = x.float().transpose(0, 1).contiguous()
+        packed = pack_padded_sequence(x, lens, batch_first=False)
+        h0 = Variable(torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)))
+        c0 = Variable(torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)))
+
+        lstm_out, _ = self.lstm(x, (h0, c0))
+        # return lstm_out
 
         ang_out = self.angularization_layer(lstm_out)
+        print(ang_out.shape)
+        #return ang_out
         return calculate_coordinates(ang_out)
 
-    def parameters(self, recurse):
-        #Type: (T, bool) -> Iterator[Parameter]:
-        lstm_params = [lstm.parameters(recurse) for lstm in self.lstm_layers]
-        params = []
-        for lstm_param in lstm_params:
-            for param in lstm_param:
-                params.append(param)
-        for param in self.angularization_layer.parameters(recurse):
-            params.append(param)
-        return params
+    # def parameters(self, recurse):
+    #     #Type: (T, bool) -> Iterator[Parameter]:
+    #     return self.model.parameters(recurse)
+    #     lstm_params = [lstm.parameters(recurse) for lstm in self.lstm_layers]
+    #     params = []
+    #     for lstm_param in lstm_params:
+    #         for param in lstm_param:
+    #             params.append(param)
+    #     for param in self.angularization_layer.parameters(recurse):
+    #         params.append(param)
+    #     return params
 
     def train(self, pn_path, epochs=30, log_interval=10):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
@@ -84,7 +113,7 @@ class RGN(nn.Module):
         for epoch in range(epochs):
             for batch_idx, pn_data in enumerate(train_loader):
                 data, target = pn_data['sequence'], pn_data['coords']
-                data, target = nn.Variable(data), nn.Variable(target)
+                data, target = torch.autograd.Variable(data), torch.autograd.Variable(target)
                 optimizer.zero_grad()
                 net_out = self(data)
                 loss = criterion(net_out, target)
