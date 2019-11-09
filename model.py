@@ -2,8 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import torch.optim.adagrad as Adagrad
 import numpy as np
+from torch.utils.data import DataLoader
 
+from rgn_pytorch.data_utlis import ProteinNetDataset
 from rgn_pytorch.geometric_ops import *
 
 
@@ -20,6 +23,13 @@ class Angularization(nn.Module):
         ang_out = calculate_dihedrals(softmax_out, self.alphabet)
 
         return ang_out
+
+    def parameters(self, recurse):
+        params = []
+        for param in self.linear_layer.parameters(recurse):
+            params.append(param)
+        params.append(self.alphabet)
+        return params
 
 
 class dRMSD(nn.Module):
@@ -53,3 +63,37 @@ class RGN(nn.Module):
 
         ang_out = self.angularization_layer(lstm_out)
         return calculate_coordinates(ang_out)
+
+    def parameters(self, recurse):
+        #Type: (T, bool) -> Iterator[Parameter]:
+        lstm_params = [lstm.parameters(recurse) for lstm in self.lstm_layers]
+        params = []
+        for lstm_param in lstm_params:
+            for param in lstm_param:
+                params.append(param)
+        for param in self.angularization_layer.parameters(recurse):
+            params.append(param)
+        return params
+
+    def train(self, pn_path, epochs=30, log_interval=10):
+        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        criterion = self.error
+
+        train_loader = DataLoader(ProteinNetDataset(pn_path), batch_size=32, shuffle=True)
+
+        for epoch in range(epochs):
+            for batch_idx, pn_data in enumerate(train_loader):
+                data, target = pn_data['sequence'], pn_data['coords']
+                data, target = nn.Variable(data), nn.Variable(target)
+                optimizer.zero_grad()
+                net_out = self(data)
+                loss = criterion(net_out, target)
+                loss.backward()
+                optimizer.step()
+                if batch_idx % log_interval == 0:
+                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                        epoch, batch_idx * len(data), len(train_loader.dataset),
+                               100. * batch_idx / len(train_loader), loss.data[0]))
+
+    def _transform_for_lstm(self, data):
+        return data
