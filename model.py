@@ -93,15 +93,20 @@ class RGN(nn.Module):
 
         for epoch in range(epochs):
             for batch_idx, pn_data in enumerate(train_loader):
-                data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask']
-                data, target = torch.autograd.Variable(data), torch.autograd.Variable(target)
-                optimizer.zero_grad()
+                data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1)
+                data, target = torch.autograd.Variable(data), torch.autograd.Variable(target.transpose(0, 1))
                 net_out = self(data)
                 # print(net_out)
                 # print(target)
                 loss = criterion(net_out, target, mask)
-                loss.backward()
-                optimizer.step()
+                print(loss)
+                for l in loss:
+                    l.backward(retain_graph=True)
+                    optimizer.step()
+                    for param in self.parameters():
+                        print(param.grad, end=' ')
+                    print()
+                    optimizer.zero_grad()
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),

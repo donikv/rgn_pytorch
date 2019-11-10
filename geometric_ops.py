@@ -28,8 +28,8 @@ def calculate_dihedrals(p, alphabet):
 
     """
 
-    sins = np.sin(alphabet)
-    coss = np.cos(alphabet)
+    sins = torch.sin(alphabet)
+    coss = torch.cos(alphabet)
 
     y_coords = p @ sins
     x_coords = p @ coss
@@ -42,9 +42,8 @@ def drmsd(u, v, mask=None):
     diffs = torch.zeros(0).double()
     for batch in range(u.shape[1]):
         u_b, v_b = u[:, batch].double(), v[:, batch].double()
-        diff = torch.pairwise_distance(u_b, v_b)
-        diffs = torch.cat([diffs, diff])
-
+        diff = torch.pairwise_distance(u_b, v_b, keepdim=True)
+        diffs = torch.cat([diffs, diff], dim=1)
     diffs = torch.mul(diffs, mask).transpose(0, 1)
     norm = diffs.norm(dim=0)
     return norm
