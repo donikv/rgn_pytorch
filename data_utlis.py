@@ -95,7 +95,7 @@ def load_data(pn_path):
         xyzi = np.stack([c for c in xi], axis=1) / 100  # have to scale by 100 to match PDB
 
         # lastly convert the mask to indices
-        msk_idx = np.array(list(map(lambda x: x[0] if x[1] == '+' else 0, enumerate(masks[i]))))
+        msk_idx = np.array(list(map(lambda x: [1, 1, 1] if x[1] == '+' else [0, 0, 0], enumerate(masks[i])))).flatten()
 
         # bracket id or get "setting an array element with a sequence"
         zt = np.array([[id], seq, pssmi, xyzi, msk_idx])
@@ -129,13 +129,13 @@ def pad_and_embed(data):
     seq_tensor = Variable(torch.zeros((len(vectorized_seqs), seq_lengths.max()))).long()
     extended_pssm = np.zeros((len(vectorized_seqs), seq_lengths.max(), pssms[0].shape[1]))
     extended_coords = np.zeros((len(vectorized_seqs), seq_lengths.max()*3, 3))
-    extended_mask = np.zeros((len(vectorized_seqs), seq_lengths.max()))
+    extended_mask = np.zeros((len(vectorized_seqs), seq_lengths.max()*3))
 
     for idx, (seq, seqlen) in enumerate(zip(vectorized_seqs, seq_lengths)):
         seq_tensor[idx, :seqlen] = LongTensor(seq)
         extended_pssm[idx, :seqlen] = pssms[idx]
         extended_coords[idx, :seqlen*3] = coords[idx]
-        extended_mask[idx, :seqlen] = mask[idx]
+        extended_mask[idx, :seqlen*3] = mask[idx]
 
     # sort data and new encoded sequences by length, possibly not needed
     # seq_lengths, perm_idx = seq_lengths.sort(0, descending=True)

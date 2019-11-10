@@ -18,7 +18,6 @@ class Angularization(nn.Module):
     def __init__(self, d_in=800, dih_out=3, linear_out=20, alphabet_size=20):
         super(Angularization, self).__init__()
         self.linear_layer = nn.Linear(2 * d_in, linear_out, bias=True)
-        self.softmax_layer = nn.Softmax()
         self.alphabet = torch.torch.FloatTensor(alphabet_size, dih_out).uniform_(-np.pi, np.pi)
 
         self.model = nn.Sequential(OrderedDict([
@@ -27,28 +26,22 @@ class Angularization(nn.Module):
         ]))
 
     def forward(self, x):
-        lin_out = self.linear_layer(x)
-        softmax_out = self.softmax_layer(lin_out)
         out = self.model(x)
         ang_out = calculate_dihedrals(out, self.alphabet)
 
         return ang_out
 
     def parameters(self, recurse):
-        params = []
-        for param in self.linear_layer.parameters(recurse):
-            params.append(param)
-        params.append(self.alphabet)
-        return params
+        yield self.alphabet
+        yield from self.model.parameters(recurse=recurse)
 
 
 class dRMSD(nn.Module):
-    def __init__(self, weights=None):
+    def __init__(self):
         super(dRMSD, self).__init__()
-        self.weights = weights
 
-    def forward(self, predicted, actual):
-        return drmsd(predicted, actual, weights=self.weights)
+    def forward(self, predicted, actual, mask=None):
+        return drmsd(predicted, actual, mask=mask)
 
 
 class RGN(nn.Module):
@@ -80,43 +73,33 @@ class RGN(nn.Module):
         lens = list(map(len, x))
         batch_sz = len(lens)
         x = x.float().transpose(0, 1).contiguous()
-        packed = pack_padded_sequence(x, lens, batch_first=False)
-        h0 = Variable(torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)))
-        c0 = Variable(torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)))
+        # h0 = Variable(torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)))
+        # c0 = Variable(torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)))
 
-        lstm_out, _ = self.lstm(x, (h0, c0))
-        # return lstm_out
+        lstm_out, _ = self.lstm(x)
 
         ang_out = self.angularization_layer(lstm_out)
-        print(ang_out.shape)
-        #return ang_out
         return calculate_coordinates(ang_out)
 
-    # def parameters(self, recurse):
-    #     #Type: (T, bool) -> Iterator[Parameter]:
-    #     return self.model.parameters(recurse)
-    #     lstm_params = [lstm.parameters(recurse) for lstm in self.lstm_layers]
-    #     params = []
-    #     for lstm_param in lstm_params:
-    #         for param in lstm_param:
-    #             params.append(param)
-    #     for param in self.angularization_layer.parameters(recurse):
-    #         params.append(param)
-    #     return params
+    def parameters(self, recurse=True):
+        yield from self.model.parameters(recurse=recurse)
+        yield from self.angularization_layer.parameters(recurse=recurse)
 
-    def train(self, pn_path, epochs=30, log_interval=10):
+    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
         criterion = self.error
 
-        train_loader = DataLoader(ProteinNetDataset(pn_path), batch_size=32, shuffle=True)
+        train_loader = DataLoader(ProteinNetDataset(pn_path), batch_size=batch_size, shuffle=True)
 
         for epoch in range(epochs):
             for batch_idx, pn_data in enumerate(train_loader):
-                data, target = pn_data['sequence'], pn_data['coords']
+                data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask']
                 data, target = torch.autograd.Variable(data), torch.autograd.Variable(target)
                 optimizer.zero_grad()
                 net_out = self(data)
-                loss = criterion(net_out, target)
+                # print(net_out)
+                # print(target)
+                loss = criterion(net_out, target, mask)
                 loss.backward()
                 optimizer.step()
                 if batch_idx % log_interval == 0:
