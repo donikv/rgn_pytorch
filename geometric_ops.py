@@ -10,10 +10,10 @@ from torch import nn
 
 NUM_DIMENSIONS = 3
 NUM_DIHEDRALS = 3
-BOND_LENGTHS = torch.empty(3)
-BOND_ANGLES = torch.empty(3)
-BOND_LENGTHS[0], BOND_LENGTHS[1], BOND_LENGTHS[2] = [145.801, 152.326, 132.868]
-BOND_ANGLES[0], BOND_ANGLES[1], BOND_ANGLES[2] = [2.124, 1.941, 2.028]
+BOND_LENGTHS = torch.tensor([145.801, 152.326, 132.868]).cuda(0)
+BOND_ANGLES = torch.tensor([2.124, 1.941, 2.028]).cuda(0)
+# BOND_LENGTHS[0], BOND_LENGTHS[1], BOND_LENGTHS[2] =
+# BOND_ANGLES[0], BOND_ANGLES[1], BOND_ANGLES[2] =
 
 
 def calculate_dihedrals(p, alphabet):
@@ -39,7 +39,7 @@ def calculate_dihedrals(p, alphabet):
 
 def drmsd(u, v, mask=None):
     #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
-    diffs = torch.zeros(0).double()
+    diffs = torch.zeros(0).double().cuda(0)
     for batch in range(u.shape[1]):
         u_b, v_b = u[:, batch].double(), v[:, batch].double()
         diff = torch.pairwise_distance(u_b, v_b, keepdim=True)
@@ -55,11 +55,11 @@ def calculate_coordinates(pred_torsions, r=BOND_LENGTHS, theta=BOND_ANGLES):
     batch_size = pred_torsions.shape[1]
     num_dihedrals = 3
 
-    A = torch.tensor([0., 0., 1.])
-    B = torch.tensor([0., 1., 0.])
-    C = torch.tensor([1., 0., 0.])
+    A = torch.tensor([0., 0., 1.]).cuda(0)
+    B = torch.tensor([0., 1., 0.]).cuda(0)
+    C = torch.tensor([1., 0., 0.]).cuda(0)
 
-    broadcast = torch.ones((batch_size, 3))
+    broadcast = torch.ones((batch_size, 3)).cuda(0)
     pred_coords = torch.stack([A * broadcast, B * broadcast, C * broadcast])
 
     for ix, triplet in enumerate(pred_torsions[1:]):
@@ -80,7 +80,7 @@ def geometric_unit(pred_coords, pred_torsions, bond_angles, bond_lens):
         P = pred_torsions[:, i]
 
         # 6x3 one triplet for each sample in the batch
-        D2 = torch.stack([-R * torch.ones(P.size()) * torch.cos(T),
+        D2 = torch.stack([-R * torch.ones(P.size()).cuda(0) * torch.cos(T),
                           R * torch.cos(P) * torch.sin(T),
                           R * torch.sin(P) * torch.sin(T)], dim=1)
 

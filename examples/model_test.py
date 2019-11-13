@@ -17,6 +17,7 @@ pn_path = home + '/Downloads/casp7/casp7/testing'
 # dataset = ProteinNetDataset(pn_path)
 # trn_data = DataLoader(dataset, batch_size=32, shuffle=True)
 model = RGN(42)
+model.cuda(0)
 # for b_id, data in enumerate(trn_data):
 #     sequences = data['sequence']
 #     out = model(sequences)

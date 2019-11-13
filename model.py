@@ -18,7 +18,7 @@ class Angularization(nn.Module):
     def __init__(self, d_in=800, dih_out=3, linear_out=20, alphabet_size=20):
         super(Angularization, self).__init__()
         self.linear_layer = nn.Linear(2 * d_in, linear_out, bias=True)
-        self.alphabet = torch.torch.FloatTensor(alphabet_size, dih_out).uniform_(-np.pi, np.pi)
+        self.alphabet = torch.FloatTensor(alphabet_size, dih_out).uniform_(-np.pi, np.pi).cuda(0).requires_grad_(True)
 
         self.model = nn.Sequential(OrderedDict([
             ('LINEAR', nn.Linear(2 * d_in, linear_out, bias=True)),
@@ -86,27 +86,30 @@ class RGN(nn.Module):
         yield from self.angularization_layer.parameters(recurse=recurse)
 
     def train(self, pn_path, epochs=30, log_interval=10, batch_size=32):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=1e-2)
         criterion = self.error
 
         train_loader = DataLoader(ProteinNetDataset(pn_path), batch_size=batch_size, shuffle=True)
 
         for epoch in range(epochs):
             for batch_idx, pn_data in enumerate(train_loader):
-                data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1)
-                data, target = torch.autograd.Variable(data), torch.autograd.Variable(target.transpose(0, 1))
+                data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1).cuda(0)
+                data, target = torch.autograd.Variable(data.cuda(0)), torch.autograd.Variable(target.transpose(0, 1).cuda(0))
                 net_out = self(data)
                 # print(net_out)
                 # print(target)
+                optimizer.zero_grad()
                 loss = criterion(net_out, target, mask)
-                print(loss)
-                for l in loss:
-                    l.backward(retain_graph=True)
-                    optimizer.step()
-                    for param in self.parameters():
-                        print(param.grad, end=' ')
-                    print()
-                    optimizer.zero_grad()
+                # for param in self.parameters():
+                #     print(param.grad, end=' ')
+                # print()
+                l = loss.sum()
+                l.backward()
+                optimizer.step()
+                # for l in loss:
+                #     l.backward(retain_graph=True)
+                #     optimizer.step()
+                #     optimizer.zero_grad()
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
