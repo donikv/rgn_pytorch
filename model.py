@@ -4,14 +4,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import torch.optim.adagrad as Adagrad
+# import torch.optim.adagrad as Adagrad
 import numpy as np
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.utils.data import DataLoader
 
-from rgn_pytorch.data_utlis import ProteinNetDataset
-from rgn_pytorch.geometric_ops import *
+from data_utlis import ProteinNetDataset
+from geometric_ops import *
 
 
 class Angularization(nn.Module):

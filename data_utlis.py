@@ -7,7 +7,7 @@ from torch import LongTensor
 from torch.autograd import Variable
 from torch.nn import Embedding
 from tqdm import tqdm
-import bcolz
+#import bcolz
 from torch.utils.data.dataset import Dataset
 
 residue_letter_codes = {'GLY': 'G','PRO': 'P','ALA': 'A','VAL': 'V','LEU': 'L',
