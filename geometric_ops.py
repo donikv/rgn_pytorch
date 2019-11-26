@@ -39,14 +39,39 @@ def calculate_dihedrals(p, alphabet):
 
 def drmsd(u, v, mask=None):
     #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
-    diffs = torch.zeros(0).double().cuda(0)
+    diffs = torch.zeros([u.shape[1], u.shape[0]]).double().cuda(0)
+    i = 0
     for batch in range(u.shape[1]):
-        u_b, v_b = u[:, batch].double(), v[:, batch].double()
-        diff = torch.pairwise_distance(u_b, v_b, keepdim=True)
-        diffs = torch.cat([diffs, diff], dim=1)
-    diffs = torch.mul(diffs, mask).transpose(0, 1)
+        u_b, v_b = calculate_pairwise_distances(u[:, batch].double()), calculate_pairwise_distances(v[:, batch].double())
+
+        diff = u_b - v_b
+        diff = diff.norm(dim=1)
+        if mask is not None:
+            mask_b = mask[:, batch].double()
+            diff = torch.mul(diff, mask_b)
+            print(diff.shape)
+        diffs[i] = diffs[i] + diff
+        i = i + 1
+    diffs = diffs.transpose(0, 1)
     norm = diffs.norm(dim=0)
     return norm
+
+def calculate_pairwise_distances(u):
+    #type: (torch.Tensor) -> (torch.Tensor)
+    """Calcualtes the pairwise distances between all atoms in the given tensor
+
+    Args:
+        u: tensor [3L ,3]
+    Returns:
+        [3L,3L] with diagonal elements 0
+    """
+    diffs = torch.zeros([u.shape[0], u.shape[0]]).double().cuda(0)
+    i = 0
+    for atom in u:
+        diff = (u-atom).norm(dim=1)
+        diffs[i] = diffs[i] + diff
+        i = i + 1
+    return diffs.transpose(0, 1)
 
 
 def calculate_coordinates(pred_torsions, r=BOND_LENGTHS, theta=BOND_ANGLES):

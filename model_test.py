@@ -14,7 +14,7 @@ from model import RGN
 home = str(Path.home())
 # pn_path = home + '/casp7/training_30'
 pn_path = home + '\\Downloads\\casp7\\casp7\\testing'
-#pn_path = os.curdir + '/../rgn_pytorch/data/text_sample'
+# pn_path = os.curdir + '/../rgn_pytorch/data/text_sample'
 # dataset = ProteinNetDataset(pn_path)
 # trn_data = DataLoader(dataset, batch_size=32, shuffle=True)
 model = RGN(42)
