@@ -103,7 +103,7 @@ class RGN(nn.Module):
                 # for param in self.parameters():
                 #     print(param.grad, end=' ')
                 # print()
-                l = loss.mean()
+                l = loss.sum()/batch_size
                 l.backward()
                 optimizer.step()
                 # for l in loss:

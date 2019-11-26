@@ -39,39 +39,34 @@ def calculate_dihedrals(p, alphabet):
 
 def drmsd(u, v, mask=None):
     #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
-    diffs = torch.zeros([u.shape[1], u.shape[0]]).double().cuda(0)
-    i = 0
+    diffs = torch.zeros(0).double().cuda(0)
+    L = u.shape[0]/3
     for batch in range(u.shape[1]):
-        u_b, v_b = calculate_pairwise_distances(u[:, batch].double()), calculate_pairwise_distances(v[:, batch].double())
-
-        diff = u_b - v_b
-        diff = diff.norm(dim=1)
-        if mask is not None:
-            mask_b = mask[:, batch].double()
-            diff = torch.mul(diff, mask_b)
-            print(diff.shape)
-        diffs[i] = diffs[i] + diff
-        i = i + 1
-    diffs = diffs.transpose(0, 1)
+        u_b, v_b = u[:, batch].double(), v[:, batch].double()
+        mask_b = mask[:, batch].double()
+        diff = calculate_pairwise_distances(u_b, v_b, mask_b)
+        diffs = torch.cat([diffs, torch.tensor([diff.norm()/(L*(L-1))], requires_grad=True).double().cuda(0)])
     norm = diffs.norm(dim=0)
-    return norm
+    return diffs
 
-def calculate_pairwise_distances(u):
-    #type: (torch.Tensor) -> (torch.Tensor)
+def calculate_pairwise_distances(u, v, mask=None):
+    #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
     """Calcualtes the pairwise distances between all atoms in the given tensor
 
     Args:
-        u: tensor [3L ,3]
+        u: tensor [3L, 3]
+        v: tensor [3L, 3]
+        mask: tensor [3L, 1]
     Returns:
-        [3L,3L] with diagonal elements 0
+        [3L,1] with diagonal elements 0
     """
-    diffs = torch.zeros([u.shape[0], u.shape[0]]).double().cuda(0)
-    i = 0
-    for atom in u:
-        diff = (u-atom).norm(dim=1)
-        diffs[i] = diffs[i] + diff
-        i = i + 1
-    return diffs.transpose(0, 1)
+    diffs = torch.zeros(0).double().cuda(0)
+    for atom_id in range(u.shape[0]):
+        if mask is not None and mask[atom_id] == 0:
+            continue
+        diff = ((u-u[atom_id]).norm(dim=1)-(v-v[atom_id]).norm(dim=1)).norm()  # [3L, 1]
+        diffs = torch.cat([diffs, torch.tensor([diff], requires_grad=True).double().cuda(0)])
+    return diffs
 
 
 def calculate_coordinates(pred_torsions, r=BOND_LENGTHS, theta=BOND_ANGLES):
