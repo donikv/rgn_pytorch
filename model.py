@@ -106,7 +106,10 @@ class RGN(nn.Module):
                 l = loss.sum()/batch_size
                 l.backward()
                 optimizer.step()
-                # for l in loss:
+                l.detach()
+                l = None
+                loss.detach()
+                loss = None# for l in loss:
                 #     l.backward(retain_graph=True)
                 #     optimizer.step()
                 #     optimizer.zero_grad()
