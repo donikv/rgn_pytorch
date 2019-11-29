@@ -107,7 +107,6 @@ class RGN(nn.Module):
                 l.backward()
                 optimizer.step()
                 l.detach()
-                l = None
                 loss.detach()
                 loss = None# for l in loss:
                 #     l.backward(retain_graph=True)
@@ -116,7 +115,8 @@ class RGN(nn.Module):
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
-                               100. * batch_idx / len(train_loader), loss.data[0]))
+                               100. * batch_idx / len(train_loader), l))
+                l = None
 
     def _transform_for_lstm(self, data):
         return data
