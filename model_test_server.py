@@ -10,7 +10,10 @@ from data_utlis import ProteinNetDataset
 from pathlib import Path
 
 from model import RGN
+import sys
+from gpu_profile import gpu_profile
 
+sys.settrace(gpu_profile)
 home = str(Path.home())
 pn_path = home + '/casp7/training_30'
 #pn_path = os.curdir + '/../rgn_pytorch/data/text_sample'
