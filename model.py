@@ -13,7 +13,6 @@ from torch.utils.data import DataLoader
 from data_utlis import ProteinNetDataset
 from geometric_ops import *
 
-
 class Angularization(nn.Module):
     def __init__(self, d_in=800, dih_out=3, linear_out=20, alphabet_size=20):
         super(Angularization, self).__init__()
