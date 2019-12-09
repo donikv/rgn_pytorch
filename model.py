@@ -117,6 +117,7 @@ class RGN(nn.Module):
                         epoch, batch_idx * len(data), len(train_loader.dataset),
                                100. * batch_idx / len(train_loader), l))
                 l = None
+                torch.cuda.empty_cache()
 
     def _transform_for_lstm(self, data):
         return data
