@@ -23,7 +23,6 @@ def move_to_gpu(self):
 
 
 setattr(torch.Tensor, 'move_to_gpu', move_to_gpu)
-setattr(torch.DoubleTensor, 'move_to_gpu', move_to_gpu)
 
 
 def calculate_dihedrals(p, alphabet):
