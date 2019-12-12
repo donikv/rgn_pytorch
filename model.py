@@ -97,6 +97,7 @@ class RGN(nn.Module):
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
                                100. * batch_idx / len(train_loader), l))
+                # torch.cuda.empty_cache()
 
     def _transform_for_lstm(self, data):
         return data

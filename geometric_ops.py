@@ -26,6 +26,15 @@ BOND_ANGLES = torch.tensor([2.124, 1.941, 2.028]).move_to_gpu()
 # BOND_ANGLES[0], BOND_ANGLES[1], BOND_ANGLES[2] =
 
 
+def move_to_gpu(self):
+    if torch.cuda.is_available():
+        return self.cuda(0)
+    return self
+
+
+setattr(torch.Tensor, 'move_to_gpu', move_to_gpu)
+
+
 def calculate_dihedrals(p, alphabet):
     """Converts the given input of weigths over the alphabet into a triple of dihederal angles
 
