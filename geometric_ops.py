@@ -4,26 +4,26 @@ from copy import deepcopy
 import numpy as np
 import torch
 
-# Constants
-from numpy.core.multiarray import ndarray
-from torch import nn
-
-NUM_DIMENSIONS = 3
-NUM_DIHEDRALS = 3
-BOND_LENGTHS = torch.tensor([145.801, 152.326, 132.868]).cuda(0)
-BOND_ANGLES = torch.tensor([2.124, 1.941, 2.028]).cuda(0)
-# BOND_LENGTHS[0], BOND_LENGTHS[1], BOND_LENGTHS[2] =
-# BOND_ANGLES[0], BOND_ANGLES[1], BOND_ANGLES[2] =
-
 
 def move_to_gpu(self):
     if torch.cuda.is_available():
         return self.cuda(0)
     return self
 
-
 setattr(torch.Tensor, 'move_to_gpu', move_to_gpu)
-setattr(torch.DoubleTensor, 'move_to_gpu', move_to_gpu)
+# setattr(torch.DoubleTensor, 'move_to_gpu', move_to_gpu)
+
+# Constants
+from numpy.core.multiarray import ndarray
+from torch import nn
+
+
+NUM_DIMENSIONS = 3
+NUM_DIHEDRALS = 3
+BOND_LENGTHS = torch.tensor([145.801, 152.326, 132.868]).move_to_gpu()
+BOND_ANGLES = torch.tensor([2.124, 1.941, 2.028]).move_to_gpu()
+# BOND_LENGTHS[0], BOND_LENGTHS[1], BOND_LENGTHS[2] =
+# BOND_ANGLES[0], BOND_ANGLES[1], BOND_ANGLES[2] =
 
 
 def calculate_dihedrals(p, alphabet):
@@ -49,13 +49,13 @@ def calculate_dihedrals(p, alphabet):
 
 def drmsd(u, v, mask=None):
     #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
-    diffs = torch.zeros(0).double().cuda(0)
+    diffs = torch.zeros(0).move_to_gpu()
     L = u.shape[0]/3
     for batch in range(u.shape[1]):
-        u_b, v_b = u[:, batch].double(), v[:, batch].double()
-        mask_b = mask[:, batch].double()
+        u_b, v_b = u[:, batch], v[:, batch]
+        mask_b = mask[:, batch]
         diff = calculate_pairwise_distances(u_b, v_b, mask_b)
-        diffs = torch.cat([diffs, torch.tensor([diff.norm()/(L*(L-1))], requires_grad=True).double().cuda(0)])
+        diffs = torch.cat([diffs, torch.tensor([diff.norm()/(L*(L-1))], requires_grad=True).move_to_gpu()])
     norm = diffs.norm(dim=0)
     return diffs
 
@@ -70,12 +70,12 @@ def calculate_pairwise_distances(u, v, mask=None):
     Returns:
         [3L,1] with diagonal elements 0
     """
-    diffs = torch.zeros(0).double().cuda(0)
+    diffs = torch.zeros(0).move_to_gpu()
     for atom_id in range(u.shape[0]):
         if mask is not None and mask[atom_id] == 0:
             continue
-        diff = ((u-u[atom_id]).norm(dim=1)-(v-v[atom_id]).norm(dim=1)).norm()  # [3L, 1]
-        diffs = torch.cat([diffs, torch.tensor([diff], requires_grad=True).double().cuda(0)])
+        diff = ((u-u[atom_id]).norm(dim=1)-(v-v[atom_id]).float().norm(dim=1)).norm()  # [3L, 1]
+        diffs = torch.cat([diffs, torch.tensor([diff], requires_grad=True).move_to_gpu()])
     return diffs
 
 
@@ -85,11 +85,11 @@ def calculate_coordinates(pred_torsions, r=BOND_LENGTHS, theta=BOND_ANGLES):
     batch_size = pred_torsions.shape[1]
     num_dihedrals = 3
 
-    A = torch.tensor([0., 0., 1.]).cuda(0)
-    B = torch.tensor([0., 1., 0.]).cuda(0)
-    C = torch.tensor([1., 0., 0.]).cuda(0)
+    A = torch.tensor([0., 0., 1.]).move_to_gpu()
+    B = torch.tensor([0., 1., 0.]).move_to_gpu()
+    C = torch.tensor([1., 0., 0.]).move_to_gpu()
 
-    broadcast = torch.ones((batch_size, 3)).cuda(0)
+    broadcast = torch.ones((batch_size, 3)).move_to_gpu()
     pred_coords = torch.stack([A * broadcast, B * broadcast, C * broadcast])
 
     for ix, triplet in enumerate(pred_torsions[1:]):
@@ -110,7 +110,7 @@ def geometric_unit(pred_coords, pred_torsions, bond_angles, bond_lens):
         P = pred_torsions[:, i]
 
         # 6x3 one triplet for each sample in the batch
-        D2 = torch.stack([-R * torch.ones(P.size()).cuda(0) * torch.cos(T),
+        D2 = torch.stack([-R * torch.ones(P.size()).move_to_gpu() * torch.cos(T),
                           R * torch.cos(P) * torch.sin(T),
                           R * torch.sin(P) * torch.sin(T)], dim=1)
 

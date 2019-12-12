@@ -108,7 +108,7 @@ def encode_protein_padded(sequence, max_len, protein_names=residue_letter_codes)
 
     vectorized_seq = [vocab.index(tok) for tok in sequence]
     embed = Embedding(len(vocab), len(vocab))
-    seq_tensor = Variable(torch.zeros((1, max_len))).long()
+    seq_tensor = torch.zeros((1, max_len)).long()
     print(seq_tensor.shape)
     seq_tensor[0, :len(vectorized_seq)] = LongTensor(seq_tensor)
     return embed(seq_tensor).detach().numpy()[0]
@@ -126,7 +126,7 @@ def pad_and_embed(data):
     embed = Embedding(len(vocab), len(vocab))
 
     seq_lengths = LongTensor(list(map(len, vectorized_seqs)))
-    seq_tensor = Variable(torch.zeros((len(vectorized_seqs), seq_lengths.max()))).long()
+    seq_tensor = torch.zeros((len(vectorized_seqs), seq_lengths.max())).long()
     extended_pssm = np.zeros((len(vectorized_seqs), seq_lengths.max(), pssms[0].shape[1]))
     extended_coords = np.zeros((len(vectorized_seqs), seq_lengths.max()*3, 3))
     extended_mask = np.zeros((len(vectorized_seqs), seq_lengths.max()*3))
@@ -167,8 +167,8 @@ class ProteinNetDataset(Dataset):
         seq_pssm = np.concatenate([sequence, pssm], axis=1)
 
         sample = {'name': name,
-                  'sequence': seq_pssm,
-                  'coords': coords,
+                  'sequence': torch.tensor(seq_pssm),
+                  'coords': torch.tensor(coords),
                   'length': length,
                   'mask': mask
                   }

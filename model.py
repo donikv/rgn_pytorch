@@ -17,7 +17,7 @@ class Angularization(nn.Module):
     def __init__(self, d_in=800, dih_out=3, linear_out=20, alphabet_size=20):
         super(Angularization, self).__init__()
         self.linear_layer = nn.Linear(2 * d_in, linear_out, bias=True)
-        self.alphabet = torch.FloatTensor(alphabet_size, dih_out).uniform_(-np.pi, np.pi).cuda(0).requires_grad_(True)
+        self.alphabet = torch.FloatTensor(alphabet_size, dih_out).uniform_(-np.pi, np.pi).move_to_gpu().requires_grad_(True)
 
         self.model = nn.Sequential(OrderedDict([
             ('LINEAR', nn.Linear(2 * d_in, linear_out, bias=True)),
@@ -49,13 +49,7 @@ class RGN(nn.Module):
         self.lstm_layers = []
         self.num_layers = num_layers
         self.hidden_size = h
-        i = 0
-        while i < num_layers:
-            if i == 0:
-                self.lstm_layers.append(nn.LSTM(d_in, hidden_size=h, bidirectional=True))
-            else:
-                self.lstm_layers.append(nn.LSTM(2 * h, hidden_size=h, bidirectional=True))
-            i += 1
+
         self.angularization_layer = Angularization(d_in=h, dih_out=3, alphabet_size=alphabet_size)
 
         self.error = dRMSD()
@@ -63,7 +57,6 @@ class RGN(nn.Module):
         self.model = nn.Sequential(OrderedDict([
             ('LSTM1', nn.LSTM(d_in, hidden_size=h, bidirectional=True)),
             ('LSTM2', nn.LSTM(h * 2, hidden_size=h, bidirectional=True)),
-            # ('ANGULAR', self.angularization_layer)
         ]))
 
         self.lstm = nn.LSTM(d_in, h, num_layers, bidirectional=True)
@@ -72,16 +65,16 @@ class RGN(nn.Module):
         lens = list(map(len, x))
         batch_sz = len(lens)
         x = x.float().transpose(0, 1).contiguous()
-        # h0 = Variable(torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)))
-        # c0 = Variable(torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)))
+        h0 = torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)).move_to_gpu()
+        c0 = torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)).move_to_gpu()
 
-        lstm_out, _ = self.lstm(x)
+        lstm_out, _ = self.lstm(x, (h0, c0))
 
         ang_out = self.angularization_layer(lstm_out)
         return calculate_coordinates(ang_out)
 
     def parameters(self, recurse=True):
-        yield from self.model.parameters(recurse=recurse)
+        yield from self.lstm.parameters(recurse=recurse)
         yield from self.angularization_layer.parameters(recurse=recurse)
 
     def train(self, pn_path, epochs=30, log_interval=10, batch_size=32):
@@ -92,30 +85,18 @@ class RGN(nn.Module):
 
         for epoch in range(epochs):
             for batch_idx, pn_data in enumerate(train_loader):
-                data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1).cuda(0)
-                data, target = torch.autograd.Variable(data.cuda(0)), torch.autograd.Variable(target.transpose(0, 1).cuda(0))
+                data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1).move_to_gpu()
+                data, target = data.move_to_gpu(), target.transpose(0, 1).move_to_gpu()
                 net_out = self(data)
-                # print(net_out)
-                # print(target)
                 optimizer.zero_grad()
                 loss = criterion(net_out, target, mask)
-                # for param in self.parameters():
-                #     print(param.grad, end=' ')
-                # print()
                 l = loss.sum()/batch_size
                 l.backward()
                 optimizer.step()
-                l.detach()
-                loss.detach()
-                loss = None# for l in loss:
-                #     l.backward(retain_graph=True)
-                #     optimizer.step()
-                #     optimizer.zero_grad()
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
                                100. * batch_idx / len(train_loader), l))
-                l = None
 
     def _transform_for_lstm(self, data):
         return data
