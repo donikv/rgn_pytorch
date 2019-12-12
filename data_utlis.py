@@ -167,8 +167,8 @@ class ProteinNetDataset(Dataset):
         seq_pssm = np.concatenate([sequence, pssm], axis=1)
 
         sample = {'name': name,
-                  'sequence': torch.tensor(seq_pssm, requires_grad=True),
-                  'coords': torch.tensor(coords, requires_grad=True),
+                  'sequence': torch.tensor(seq_pssm),
+                  'coords': torch.tensor(coords),
                   'length': length,
                   'mask': mask
                   }
