@@ -16,8 +16,7 @@ from geometric_ops import *
 class Angularization(nn.Module):
     def __init__(self, d_in=800, dih_out=3, linear_out=20, alphabet_size=20):
         super(Angularization, self).__init__()
-        self.linear_layer = nn.Linear(2 * d_in, linear_out, bias=True)
-        self.alphabet = torch.FloatTensor(alphabet_size, dih_out).uniform_(-np.pi, np.pi).cuda(0).requires_grad_(True)
+        self.alphabet = torch.FloatTensor(alphabet_size, dih_out).uniform_(-np.pi, np.pi).move_to_gpu().requires_grad_(True)
 
         self.model = nn.Sequential(OrderedDict([
             ('LINEAR', nn.Linear(2 * d_in, linear_out, bias=True)),
@@ -46,16 +45,6 @@ class dRMSD(nn.Module):
 class RGN(nn.Module):
     def __init__(self, d_in, linear_out=20, h=800, num_layers=2, alphabet_size=20):
         super(RGN, self).__init__()
-        self.lstm_layers = []
-        self.num_layers = num_layers
-        self.hidden_size = h
-        i = 0
-        while i < num_layers:
-            if i == 0:
-                self.lstm_layers.append(nn.LSTM(d_in, hidden_size=h, bidirectional=True))
-            else:
-                self.lstm_layers.append(nn.LSTM(2 * h, hidden_size=h, bidirectional=True))
-            i += 1
         self.angularization_layer = Angularization(d_in=h, dih_out=3, alphabet_size=alphabet_size)
 
         self.error = dRMSD()
@@ -86,37 +75,27 @@ class RGN(nn.Module):
 
     def train(self, pn_path, epochs=30, log_interval=10, batch_size=32):
         optimizer = optim.Adam(self.parameters(), lr=9e-2)
-        criterion = self.error
+        criterion = dRMSD()
+
+        use_cuda = torch.cuda.is_available()
+        torch.device('cuda:0' if use_cuda else 'cpu')
 
         train_loader = DataLoader(ProteinNetDataset(pn_path), batch_size=batch_size, shuffle=True)
 
         for epoch in range(epochs):
             for batch_idx, pn_data in enumerate(train_loader):
-                data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1).cuda(0)
-                data, target = torch.autograd.Variable(data.cuda(0)), torch.autograd.Variable(target.transpose(0, 1).cuda(0))
+                data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1).move_to_gpu()
+                data, target = data.move_to_gpu(), target.transpose(0, 1).move_to_gpu()
                 net_out = self(data)
-                # print(net_out)
-                # print(target)
                 optimizer.zero_grad()
                 loss = criterion(net_out, target, mask)
-                # for param in self.parameters():
-                #     print(param.grad, end=' ')
-                # print()
                 l = loss.sum()/batch_size
                 l.backward()
                 optimizer.step()
-                l.detach()
-                loss.detach()
-                loss = None# for l in loss:
-                #     l.backward(retain_graph=True)
-                #     optimizer.step()
-                #     optimizer.zero_grad()
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
-                               100. * batch_idx / len(train_loader), l))
-                l = None
-                torch.cuda.empty_cache()
+                               100. * batch_idx / len(train_loader), l.item()))
 
     def _transform_for_lstm(self, data):
         return data
