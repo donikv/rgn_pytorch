@@ -58,13 +58,13 @@ def calculate_dihedrals(p, alphabet):
 
 def drmsd(u, v, mask=None):
     #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
-    diffs = torch.zeros(0).move_to_gpu()
+    diffs = torch.zeros(0, requires_grad=True).move_to_gpu()
     L = u.shape[0]/3
     for batch in range(u.shape[1]):
         u_b, v_b = u[:, batch], v[:, batch]
         mask_b = mask[:, batch]
         diff = calculate_pairwise_distances(u_b, v_b, mask_b)
-        diffs = torch.cat([diffs, torch.tensor([diff.norm()/(L*(L-1))], requires_grad=True).move_to_gpu()])
+        diffs = torch.cat([diffs, diff.norm(dim=0, keepdim=True)/(L*(L-1))])
     norm = diffs.norm(dim=0)
     return diffs
 
@@ -79,12 +79,12 @@ def calculate_pairwise_distances(u, v, mask=None):
     Returns:
         [3L,1] with diagonal elements 0
     """
-    diffs = torch.zeros(0).move_to_gpu()
+    diffs = torch.zeros(0, requires_grad=True).move_to_gpu()
     for atom_id in range(u.shape[0]):
         if mask is not None and mask[atom_id] == 0:
             continue
-        diff = ((u-u[atom_id]).norm(dim=1)-(v-v[atom_id]).float().norm(dim=1)).norm()  # [3L, 1]
-        diffs = torch.cat([diffs, torch.tensor([diff], requires_grad=True).move_to_gpu()])
+        diff = ((u-u[atom_id]).norm(dim=1)-(v-v[atom_id]).float().norm(dim=1)).norm(keepdim=True, dim=0)  # [3L, 1]
+        diffs = torch.cat([diffs, diff])
     return diffs
 
 

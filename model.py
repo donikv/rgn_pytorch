@@ -46,7 +46,6 @@ class dRMSD(nn.Module):
 class RGN(nn.Module):
     def __init__(self, d_in, linear_out=20, h=800, num_layers=2, alphabet_size=20):
         super(RGN, self).__init__()
-        self.lstm_layers = []
         self.num_layers = num_layers
         self.hidden_size = h
 
@@ -54,19 +53,14 @@ class RGN(nn.Module):
 
         self.error = dRMSD()
 
-        self.model = nn.Sequential(OrderedDict([
-            ('LSTM1', nn.LSTM(d_in, hidden_size=h, bidirectional=True)),
-            ('LSTM2', nn.LSTM(h * 2, hidden_size=h, bidirectional=True)),
-        ]))
-
         self.lstm = nn.LSTM(d_in, h, num_layers, bidirectional=True)
 
     def forward(self, x):
         lens = list(map(len, x))
         batch_sz = len(lens)
         x = x.float().transpose(0, 1).contiguous()
-        h0 = torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)).move_to_gpu()
-        c0 = torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)).move_to_gpu()
+        h0 = torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)).move_to_gpu().requires_grad_(True)
+        c0 = torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)).move_to_gpu().requires_grad_(True)
 
         lstm_out, _ = self.lstm(x, (h0, c0))
 
@@ -93,10 +87,11 @@ class RGN(nn.Module):
                 l = loss.sum()/batch_size
                 l.backward()
                 optimizer.step()
+                print(list(map(lambda x: x.grad, self.parameters())))
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
-                               100. * batch_idx / len(train_loader), l))
+                               100. * batch_idx / len(train_loader), l.item()))
                 # torch.cuda.empty_cache()
 
     def _transform_for_lstm(self, data):
