@@ -71,8 +71,10 @@ class RGN(nn.Module):
         yield from self.lstm.parameters(recurse=recurse)
         yield from self.angularization_layer.parameters(recurse=recurse)
 
-    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32):
-        optimizer = optim.Adam(self.parameters(), lr=9e-2)
+    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD'):
+        optimizer = optim.SGD(self.parameters(), lr=1e-3)
+        if optimiz == 'Adam':
+            optimizer = optim.Adam(self.parameters(), lr=9e-2)
         criterion = self.error
         torch.autograd.set_detect_anomaly = True
 
