@@ -74,6 +74,7 @@ class RGN(nn.Module):
     def train(self, pn_path, epochs=30, log_interval=10, batch_size=32):
         optimizer = optim.Adam(self.parameters(), lr=9e-2)
         criterion = self.error
+        torch.autograd.set_detect_anomaly = True
 
         train_loader = DataLoader(ProteinNetDataset(pn_path), batch_size=batch_size, shuffle=True)
 
@@ -84,10 +85,10 @@ class RGN(nn.Module):
                 net_out = self(data)
                 optimizer.zero_grad()
                 loss = criterion(net_out, target, mask)
-                l = loss.sum()/batch_size
+                l = loss.mean()
                 l.backward()
                 optimizer.step()
-                print(list(map(lambda x: x.grad, self.parameters())))
+                print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
