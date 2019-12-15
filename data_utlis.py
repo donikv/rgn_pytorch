@@ -126,7 +126,7 @@ def pad_and_embed(data):
     embed = Embedding(len(vocab), len(vocab))
 
     seq_lengths = LongTensor(list(map(len, vectorized_seqs)))
-    seq_tensor = torch.zeros((len(vectorized_seqs), seq_lengths.max()), requires_grad=True).long()
+    seq_tensor = torch.zeros((len(vectorized_seqs), seq_lengths.max())).long()
     extended_pssm = np.zeros((len(vectorized_seqs), seq_lengths.max(), pssms[0].shape[1]))
     extended_coords = np.zeros((len(vectorized_seqs), seq_lengths.max()*3, 3))
     extended_mask = np.zeros((len(vectorized_seqs), seq_lengths.max()*3))
@@ -152,10 +152,11 @@ def pad_and_embed(data):
 
 
 class ProteinNetDataset(Dataset):
-    def __init__(self, proteinnet_path):
+    def __init__(self, proteinnet_path, transform_to_tensor=torch.tensor):
         self.data = pad_and_embed(load_data(proteinnet_path))
         self.lens = LongTensor(list(map(lambda x: len(x[1]), self.data)))
         self.max_len = self.lens.max()
+        self.transform_to_tensor=transform_to_tensor
 
     def __len__(self):
         return len(self.data)
@@ -167,8 +168,8 @@ class ProteinNetDataset(Dataset):
         seq_pssm = np.concatenate([sequence, pssm], axis=1)
 
         sample = {'name': name,
-                  'sequence': torch.tensor(seq_pssm),
-                  'coords': torch.tensor(coords),
+                  'sequence': self.transform_to_tensor(seq_pssm),
+                  'coords': self.transform_to_tensor(coords),
                   'length': length,
                   'mask': mask
                   }

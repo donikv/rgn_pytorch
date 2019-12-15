@@ -78,7 +78,7 @@ class RGN(nn.Module):
         criterion = self.error
         torch.autograd.set_detect_anomaly = True
 
-        train_loader = DataLoader(ProteinNetDataset(pn_path), batch_size=batch_size, shuffle=True)
+        train_loader = DataLoader(ProteinNetDataset(pn_path), batch_size=batch_size, shuffle=True, pin_memory=True)
 
         for epoch in range(epochs):
             for batch_idx, pn_data in enumerate(train_loader):

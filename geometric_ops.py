@@ -7,11 +7,11 @@ import torch
 
 def move_to_gpu(self):
     if torch.cuda.is_available():
-        return self.cuda(0)
+        return self.to('cuda:0', non_blocking=True)
     return self
 
+
 setattr(torch.Tensor, 'move_to_gpu', move_to_gpu)
-# setattr(torch.DoubleTensor, 'move_to_gpu', move_to_gpu)
 
 # Constants
 from numpy.core.multiarray import ndarray
@@ -24,15 +24,6 @@ BOND_LENGTHS = torch.tensor([145.801, 152.326, 132.868]).move_to_gpu()
 BOND_ANGLES = torch.tensor([2.124, 1.941, 2.028]).move_to_gpu()
 # BOND_LENGTHS[0], BOND_LENGTHS[1], BOND_LENGTHS[2] =
 # BOND_ANGLES[0], BOND_ANGLES[1], BOND_ANGLES[2] =
-
-
-def move_to_gpu(self):
-    if torch.cuda.is_available():
-        return self.cuda(0)
-    return self
-
-
-setattr(torch.Tensor, 'move_to_gpu', move_to_gpu)
 
 
 def calculate_dihedrals(p, alphabet):
