@@ -74,10 +74,12 @@ class RGN(nn.Module):
         yield from self.angularization_layer.parameters(recurse=recurse)
 
     def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD', verbose=False, profile_gpu=False):
+        if profile_gpu:
+            gpu_profile(frame=sys._getframe(), event='line', arg=None)
         optimizer = optim.SGD(self.parameters(), lr=1e-4)
         if optimiz == 'Adam':
             optimizer = optim.Adam(self.parameters(), lr=9e-2)
-        criterion = self.error
+        criterion = dRMSD()
         torch.autograd.set_detect_anomaly = True
 
         train_loader = DataLoader(ProteinNetDataset(pn_path), batch_size=batch_size, shuffle=True, pin_memory=True)
@@ -98,9 +100,7 @@ class RGN(nn.Module):
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
                                100. * batch_idx / len(train_loader), l.item()))
-                # torch.cuda.empty_cache()
-        if profile_gpu:
-            gpu_profile(frame=sys._getframe(), event='line', arg=None)
+                torch.cuda.empty_cache()
 
     def test(self, pn_path):
         test_loader = DataLoader(ProteinNetDataset(pn_path), pin_memory=True, batch_size=1)
@@ -114,6 +114,7 @@ class RGN(nn.Module):
                 curr_loss = self.error(output, target, mask).item()  # sum up batch loss
                 print('Error on {}: {}'.format(name, curr_loss))
                 test_loss += curr_loss
+                torch.cuda.empty_cache()
             print('Total loss: {}'.format(test_loss))
 
     def _transform_for_lstm(self, data):

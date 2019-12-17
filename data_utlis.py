@@ -169,8 +169,8 @@ class ProteinNetDataset(Dataset):
         seq_pssm = np.concatenate([sequence, pssm], axis=1)
 
         sample = {'name': name,
-                  'sequence': self.transform_to_tensor(seq_pssm),
-                  'coords': self.transform_to_tensor(coords),
+                  'sequence': self.transform_to_tensor(seq_pssm).requires_grad_(False),
+                  'coords': self.transform_to_tensor(coords).requires_grad_(False),
                   'length': length,
                   'mask': mask
                   }
