@@ -157,7 +157,7 @@ class ProteinNetDataset(Dataset):
         self.data = pad_and_embed(load_data(proteinnet_path))
         self.lens = LongTensor(list(map(lambda x: len(x[1]), self.data)))
         self.max_len = self.lens.max()
-        self.transform_to_tensor=transform_to_tensor
+        self.transform_to_tensor = transform_to_tensor
 
     def __len__(self):
         return len(self.data)

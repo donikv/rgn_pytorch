@@ -1,3 +1,5 @@
+import sys
+from gpu_profile import gpu_profile
 from collections import OrderedDict
 
 import torch
@@ -53,7 +55,7 @@ class RGN(nn.Module):
 
         self.error = dRMSD()
 
-        self.lstm = nn.LSTM(d_in, h, num_layers, bidirectional=True)
+        self.lstm = nn.LSTM(d_in, h, num_layers, bidirectional=True, dropout=0.4)
 
     def forward(self, x):
         lens = list(map(len, x))
@@ -71,8 +73,8 @@ class RGN(nn.Module):
         yield from self.lstm.parameters(recurse=recurse)
         yield from self.angularization_layer.parameters(recurse=recurse)
 
-    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD', verbose=False):
-        optimizer = optim.SGD(self.parameters(), lr=1e-3)
+    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD', verbose=False, profile_gpu=False):
+        optimizer = optim.SGD(self.parameters(), lr=1e-4)
         if optimiz == 'Adam':
             optimizer = optim.Adam(self.parameters(), lr=9e-2)
         criterion = self.error
@@ -97,6 +99,22 @@ class RGN(nn.Module):
                         epoch, batch_idx * len(data), len(train_loader.dataset),
                                100. * batch_idx / len(train_loader), l.item()))
                 # torch.cuda.empty_cache()
+        if profile_gpu:
+            gpu_profile(frame=sys._getframe(), event='line', arg=None)
+
+    def test(self, pn_path):
+        test_loader = DataLoader(ProteinNetDataset(pn_path), pin_memory=True, batch_size=1)
+        test_loss = 0
+        with torch.no_grad():
+            for pn_data in test_loader:
+                name = pn_data['name']
+                data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1).move_to_gpu()
+                data, target = data.move_to_gpu(), target.transpose(0, 1).move_to_gpu()
+                output = self(data)
+                curr_loss = self.error(output, target, mask).item()  # sum up batch loss
+                print('Error on {}: {}'.format(name, curr_loss))
+                test_loss += curr_loss
+            print('Total loss: {}'.format(test_loss))
 
     def _transform_for_lstm(self, data):
         return data
