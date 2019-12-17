@@ -2,11 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="bce9793a-9373-43f9-9049-73486aea4c2e" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/rgn_pytorch.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/rgn_pytorch.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_utlis.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_utlis.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/model_test.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model_test_server.py" beforeDir="false" afterPath="$PROJECT_DIR$/model_test_server.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -103,7 +99,7 @@
       <option name="presentableId" value="Default" />
       <updated>1573029735841</updated>
       <workItem from="1573029741077" duration="106000" />
-      <workItem from="1576616038730" duration="1821000" />
+      <workItem from="1576616038730" duration="2478000" />
     </task>
     <servers />
   </component>

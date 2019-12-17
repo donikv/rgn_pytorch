@@ -16,6 +16,9 @@ import sys
 #sys.settrace(gpu_profile)
 home = str(Path.home())
 pn_path = home + '/casp7/training_30'
+pn_test = home + '/casp7/testing'
 model = RGN(42)
 model.cuda(0)
-model.train(pn_path, log_interval=1, epochs=1)
+model.train(pn_path, log_interval=1, epochs=5)
+model.test(pn_test)
+exit()
