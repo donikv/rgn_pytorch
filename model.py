@@ -71,7 +71,7 @@ class RGN(nn.Module):
         yield from self.lstm.parameters(recurse=recurse)
         yield from self.angularization_layer.parameters(recurse=recurse)
 
-    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD'):
+    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD', verbose=False):
         optimizer = optim.SGD(self.parameters(), lr=1e-3)
         if optimiz == 'Adam':
             optimizer = optim.Adam(self.parameters(), lr=9e-2)
@@ -90,7 +90,8 @@ class RGN(nn.Module):
                 l = loss.mean()
                 l.backward()
                 optimizer.step()
-                print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
+                if verbose:
+                    print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),

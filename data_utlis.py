@@ -100,6 +100,7 @@ def load_data(pn_path):
         # bracket id or get "setting an array element with a sequence"
         zt = np.array([[id], seq, pssmi, xyzi, msk_idx])
         data[i] = zt
+    print(len(data))
     return data
 
 
