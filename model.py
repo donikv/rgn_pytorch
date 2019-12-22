@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 from data_utlis import ProteinNetDataset
 from geometric_ops import *
-from simple_profile import dump_tesnors as dump_tensors
+from simple_profile import dump_tensors
 import pickle
 
 class Angularization(nn.Module):
