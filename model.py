@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 
 from data_utlis import ProteinNetDataset
 from geometric_ops import *
+from simple_profile import dump_tesnors as dump_tensors
 import pickle
 
 class Angularization(nn.Module):
@@ -96,7 +97,8 @@ class RGN(nn.Module):
                 l.backward()
                 optimizer.step()
                 if verbose:
-                    print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
+                    dump_tensors()
+                    # print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
