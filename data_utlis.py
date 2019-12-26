@@ -8,7 +8,9 @@ from torch.autograd import Variable
 from torch.nn import Embedding
 from tqdm import tqdm
 #import bcolz
+import pickle
 from torch.utils.data.dataset import Dataset
+import sys
 
 residue_letter_codes = {'GLY': 'G','PRO': 'P','ALA': 'A','VAL': 'V','LEU': 'L',
                         'ILE': 'I','MET': 'M','CYS': 'C','PHE': 'F','TYR': 'Y',
@@ -19,6 +21,29 @@ aa2ix= {'G': 0,'P': 1,'A': 2,'V': 3,'L': 4,
           'I': 5,'M': 6,'C': 7,'F': 8,'Y': 9,
           'W': 10,'H': 11,'K': 12,'R': 13,'Q': 14,
           'N': 15,'E': 16,'D': 17,'S': 18,'T': 19}
+
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
+
+
 
 def load_data(pn_path):
     # type: (String) -> ndarray
@@ -100,7 +125,6 @@ def load_data(pn_path):
         # bracket id or get "setting an array element with a sequence"
         zt = np.array([[id], seq, pssmi, xyzi, msk_idx])
         data[i] = zt
-    print(len(data))
     return data
 
 
@@ -126,7 +150,7 @@ def pad_and_embed(data):
 
     embed = Embedding(len(vocab), len(vocab))
 
-    seq_lengths = LongTensor(list(map(len, vectorized_seqs)))
+    seq_lengths = np.array(list(map(len, vectorized_seqs)), dtype=np.int_)
     seq_tensor = torch.zeros((len(vectorized_seqs), seq_lengths.max())).long()
     extended_pssm = np.zeros((len(vectorized_seqs), seq_lengths.max(), pssms[0].shape[1]))
     extended_coords = np.zeros((len(vectorized_seqs), seq_lengths.max()*3, 3))
@@ -149,13 +173,16 @@ def pad_and_embed(data):
         data[idx][2] = extended_pssm[idx]
         data[idx][3] = extended_coords[idx]
         data[idx][4] = extended_mask[idx]
+    print(len(pickle.dumps(data)))
+    print(get_size(data[0]))
+    print(get_size(data))
     return data
 
 
 class ProteinNetDataset(Dataset):
     def __init__(self, proteinnet_path, transform_to_tensor=torch.tensor):
         self.data = pad_and_embed(load_data(proteinnet_path))
-        self.lens = LongTensor(list(map(lambda x: len(x[1]), self.data)))
+        self.lens = np.array(list(map(lambda x: len(x[1]), self.data)), dtype=np.int_)
         self.max_len = self.lens.max()
         self.transform_to_tensor = transform_to_tensor
 
@@ -169,10 +196,10 @@ class ProteinNetDataset(Dataset):
         seq_pssm = np.concatenate([sequence, pssm], axis=1)
 
         sample = {'name': name,
-                  'sequence': self.transform_to_tensor(seq_pssm).requires_grad_(False),
-                  'coords': self.transform_to_tensor(coords).requires_grad_(False),
+                  'sequence': self.transform_to_tensor(seq_pssm).requires_grad_(False).half(),
+                  'coords': self.transform_to_tensor(coords).requires_grad_(False).half(),
                   'length': length,
-                  'mask': mask
+                  'mask': self.transform_to_tensor(mask)
                   }
 
         return sample

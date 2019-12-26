@@ -13,6 +13,8 @@ from torch.utils.data import DataLoader
 
 from data_utlis import ProteinNetDataset
 from geometric_ops import *
+from simple_profile import dump_tensors
+import pickle
 
 class Angularization(nn.Module):
     def __init__(self, d_in=800, dih_out=3, linear_out=20, alphabet_size=20):
@@ -95,7 +97,8 @@ class RGN(nn.Module):
                 l.backward()
                 optimizer.step()
                 if verbose:
-                    print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
+                    dump_tensors()
+                    # print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -105,6 +108,7 @@ class RGN(nn.Module):
     def test(self, pn_path):
         test_loader = DataLoader(ProteinNetDataset(pn_path), pin_memory=True, batch_size=1)
         test_loss = 0
+        predictions = []
         with torch.no_grad():
             for pn_data in test_loader:
                 name = pn_data['name']
@@ -112,10 +116,14 @@ class RGN(nn.Module):
                 data, target = data.move_to_gpu(), target.transpose(0, 1).move_to_gpu()
                 output = self(data)
                 curr_loss = self.error(output, target, mask).item()  # sum up batch loss
+                predictions.append((name, output.detach(), target.detach()))
                 print('Error on {}: {}'.format(name, curr_loss))
                 test_loss += curr_loss
                 torch.cuda.empty_cache()
             print('Total loss: {}'.format(test_loss))
+            self._save_prediction_to_file(predictions, 'predictions.pickle')
 
-    def _transform_for_lstm(self, data):
-        return data
+    def _save_prediction_to_file(self, predictions, out):
+        outf = open(out, 'w+')
+        outf = pickle.dump(predictions, out)
+        outf.close()
