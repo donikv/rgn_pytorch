@@ -184,23 +184,29 @@ def flatmap(func, *iterable):
     return chain.from_iterable(map(func, *iterable))
 
 
-def window(iterable, window_size):
-    witerable = [seq[max(0, i-window_size): min(len(seq)-1, i+window_size)] for i in range(len(seq)) for seq in iterable]
-    return flatmap(x: x, witerable)
+def window(iterable, window_size, step=1):
+    witerable = []
+    for seq in iterable:
+        for i in range(0, len(seq)-window_size, step):
+            witerable.append(seq[i: i+window_size])
+    return witerable
 
 
-def window(data, window_size):
+def window_data(data, window_size):
     seqs = list(map(lambda x: x[1], data))
     pssms = list(map(lambda x: x[2], data))
     coords = list(map(lambda x: x[3], data))
     mask = list(map(lambda x: x[4], data))
+    print(np.array(coords).shape)
+    print(np.array(mask).shape)
  
-    seqs = window(seqs, window_size)
-    pssms = window(pssms, window_size)
-    coords = window(coords, window_size)
-    mask = window(mask, window_size)
+    wseqs = window(seqs, window_size)
+    wpssms = window(pssms, window_size)
+    wcoords = window(coords, window_size*3, step=3)
+
+    wmask = window(mask, window_size*3, step=3)
     
-    return [('', seqs[i], pssms[i], coords[i], mask[i]) for i in range(len(seqs))]
+    return [['', wseqs[i], wpssms[i], wcoords[i], wmask[i]] for i in range(len(wseqs))]
 
 class ProteinNetDataset(Dataset):
     def __init__(self, proteinnet_path, transform_to_tensor=torch.tensor):
@@ -229,7 +235,8 @@ class ProteinNetDataset(Dataset):
 
 class ProteinNetWindowedDataset(Dataset):
     def __init__(self, proteinnet_path, transform_to_tensor=torch.tensor, window_size=5):
-        self.data = pad_and_embed(window(load_data(proteinnet_path), window_size))
+        self.data = pad_and_embed(window_data(load_data(proteinnet_path), window_size))
+        print(np.array(self.data).shape)
         self.lens = np.array(list(map(lambda x: len(x[1]), self.data)), dtype=np.int_)
         self.max_len = self.lens.max()
         self.transform_to_tensor = transform_to_tensor
@@ -239,12 +246,12 @@ class ProteinNetWindowedDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx): 
-        name, sequence, pssm, coords, mask = self.data[index]
+        name, sequence, pssm, coords, mask = self.data[idx]
         length = len(sequence)
         #sequence_vec = encode_protein_padded(sequence, self.max_len)
         seq_pssm = np.concatenate([sequence, pssm], axis=1)
         sample = {'name': name,
-                  'sequence': self.transform_to_tensor(seq_pssm[idx-window_size:idx]).requires_grad_(False).half(),
+                  'sequence': self.transform_to_tensor(seq_pssm).requires_grad_(False).half(),
                   'coords': self.transform_to_tensor(coords).requires_grad_(False).half(),
                   'length': length,
                   'mask': self.transform_to_tensor(mask)
