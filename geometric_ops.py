@@ -130,3 +130,35 @@ def geometric_unit(pred_coords, pred_torsions, bond_angles, bond_lens):
 
     return pred_coords
 
+def geometric_unit2(pred_coords, pred_torsions, bond_angles, bond_lens):
+    # coordinates of last three atoms
+    A = torch.stack([pred_coords[-3], pred_coords[-3], pred_coords[-3]])
+    B = torch.stack([pred_coords[-2], pred_coords[-2], pred_coords[-2]])
+    C = torch.stack([pred_coords[-1], pred_coords[-1], pred_coords[-1]])
+
+    # internal coordinates
+    T = torch.stack((bond_angles[0],bond_angles[1],bond_angles[2]))
+    R = torch.stack((bond_lens[0],bond_lens[1],bond_lens[2]))
+    P = torch.stack((bond_lensions[:, 0],pred_torsions[:, 1],pred_torsions[:, 2]))
+
+    # 6x3x3 one triplet for each sample in the batch
+    D2 = torch.stack([-R * torch.ones(P.size()).move_to_gpu() * torch.cos(T),
+                      R * torch.cos(P) * torch.sin(T),
+                      R * torch.sin(P) * torch.sin(T)], dim=1)
+
+    # bsx3x3 one triplet for each sample in the batch
+    BC = C - B
+    print(BC.size())
+    bc = BC / torch.norm(BC, 2, dim=1, keepdim=True)
+
+    AB = B - A
+
+    N = torch.cross(AB, bc)
+    n = N / torch.norm(N, 2, dim=1, keepdim=True)
+
+    M = torch.stack([bc, torch.cross(n, bc), n], dim=3)
+    print(M.size())
+    D = torch.bmm(M, D2.view(-1, 3, 1, 3)).squeeze() + C
+    pred_coords = torch.cat([pred_coords, D.view(1, -1, 3, 3)])
+
+    return pred_coords
