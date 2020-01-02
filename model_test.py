@@ -18,9 +18,9 @@ home = str(Path.home())
 # pn_path = home + '/casp7/training_30'
 pn_path = home + '\\Downloads\\casp7\\casp7\\testing'
 pn_test = os.curdir + '/../rgn_pytorch/data/text_sample'
-model = RGN(42)
+model = RGN(42, window_size=9)
 model.cuda(0)
-model.train(pn_path, log_interval=1, optimiz='Adam', epochs=1, profile_gpu=True)
+model.train(pn_test, log_interval=1, optimiz='Adam', epochs=1, profile_gpu=True)
 model.test(pn_test)
 f = open("model.pickle", "w+")
 torch.save(model, f)

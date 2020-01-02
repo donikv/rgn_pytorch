@@ -22,6 +22,8 @@ aa2ix= {'G': 0,'P': 1,'A': 2,'V': 3,'L': 4,
           'W': 10,'H': 11,'K': 12,'R': 13,'Q': 14,
           'N': 15,'E': 16,'D': 17,'S': 18,'T': 19}
 
+HYDRO = { 'I':4.5,'V':4.2,'L':3.8,'F':2.8,'C':2.5,'M':1.9,'A':1.8,'G':-0.4,'T':-0.7,'S':-0.8,'W':-0.9,'Y':-1.3,'P':-1.6,'H':-3.2,'E':-3.5,'Q':-3.5,'D':-3.5,'N':-3.5,'K':-3.9,'R':-4.5 }
+
 
 def get_size(obj, seen=None):
     """Recursively finds size of objects"""
@@ -144,6 +146,7 @@ def pad_and_embed(data):
     pssms = list(map(lambda x: x[2], data))
     coords = list(map(lambda x: x[3], data))
     mask = list(map(lambda x: x[4], data))
+    hydro = list(map(lambda x: list(map(lambda y: HYDRO[y], x[1])), data))
 
     vocab = ['<pad>'] + sorted(set([char for char in residue_letter_codes.values()]))
     vectorized_seqs = [[vocab.index(tok) for tok in seq] for seq in seqs]
@@ -155,9 +158,11 @@ def pad_and_embed(data):
     extended_pssm = np.zeros((len(vectorized_seqs), seq_lengths.max(), pssms[0].shape[1]))
     extended_coords = np.zeros((len(vectorized_seqs), seq_lengths.max()*3, 3))
     extended_mask = np.zeros((len(vectorized_seqs), seq_lengths.max()*3))
+    extended_hydro = torch.zeros((len(vectorized_seqs), seq_lengths.max()))
 
     for idx, (seq, seqlen) in enumerate(zip(vectorized_seqs, seq_lengths)):
         seq_tensor[idx, :seqlen] = LongTensor(seq)
+        extended_hydro[idx, :seqlen] = torch.tensor(hydro[idx])
         extended_pssm[idx, :seqlen] = pssms[idx]
         extended_coords[idx, :seqlen*3] = coords[idx]
         extended_mask[idx, :seqlen*3] = mask[idx]
@@ -173,11 +178,38 @@ def pad_and_embed(data):
         data[idx][2] = extended_pssm[idx]
         data[idx][3] = extended_coords[idx]
         data[idx][4] = extended_mask[idx]
-    print(len(pickle.dumps(data)))
-    print(get_size(data[0]))
-    print(get_size(data))
+        data[idx].append(extended_hydro[idx])
     return data
 
+
+def flatmap(func, *iterable):
+    from itertools import chain
+    return chain.from_iterable(map(func, *iterable))
+
+
+def window(iterable, window_size, step=1):
+    witerable = []
+    for seq in iterable:
+        for i in range(0, len(seq)-window_size, step):
+            witerable.append(seq[i: i+window_size])
+    return witerable
+
+
+def window_data(data, window_size):
+    seqs = list(map(lambda x: x[1], data))
+    pssms = list(map(lambda x: x[2], data))
+    coords = list(map(lambda x: x[3], data))
+    mask = list(map(lambda x: x[4], data))
+    print(np.array(coords).shape)
+    print(np.array(mask).shape)
+ 
+    wseqs = window(seqs, window_size)
+    wpssms = window(pssms, window_size)
+    wcoords = window(coords, window_size*3, step=3)
+
+    wmask = window(mask, window_size*3, step=3)
+    
+    return [['', wseqs[i], wpssms[i], wcoords[i], wmask[i]] for i in range(len(wseqs))]
 
 class ProteinNetDataset(Dataset):
     def __init__(self, proteinnet_path, transform_to_tensor=torch.tensor):
@@ -190,11 +222,37 @@ class ProteinNetDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        name, sequence, pssm, coords, mask = self.data[idx]
+        name, sequence, pssm, coords, mask, hydro = self.data[idx]
+        length = len(sequence)
+        #sequence_vec = encode_protein_padded(sequence, self.max_len)
+        seq_pssm = np.concatenate([sequence, pssm, hydro], axis=1)
+
+        sample = {'name': name,
+                  'sequence': self.transform_to_tensor(seq_pssm).requires_grad_(False).half(),
+                  'coords': self.transform_to_tensor(coords).requires_grad_(False).half(),
+                  'length': length,
+                  'mask': self.transform_to_tensor(mask)
+                  }
+
+        return sample
+
+class ProteinNetWindowedDataset(Dataset):
+    def __init__(self, proteinnet_path, transform_to_tensor=torch.tensor, window_size=5):
+        self.data = pad_and_embed(window_data(load_data(proteinnet_path), window_size))
+        print(np.array(self.data).shape)
+        self.lens = np.array(list(map(lambda x: len(x[1]), self.data)), dtype=np.int_)
+        self.max_len = self.lens.max()
+        self.transform_to_tensor = transform_to_tensor
+        self.window_size = window_size
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx): 
+        name, sequence, pssm, coords, mask, hydro = self.data[idx]
         length = len(sequence)
         #sequence_vec = encode_protein_padded(sequence, self.max_len)
         seq_pssm = np.concatenate([sequence, pssm], axis=1)
-
         sample = {'name': name,
                   'sequence': self.transform_to_tensor(seq_pssm).requires_grad_(False).half(),
                   'coords': self.transform_to_tensor(coords).requires_grad_(False).half(),

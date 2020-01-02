@@ -12,6 +12,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.utils.data import DataLoader
 
 from data_utlis import ProteinNetDataset
+from data_utlis import ProteinNetWindowedDataset
 from geometric_ops import *
 from simple_profile import dump_tensors
 import pickle
@@ -46,11 +47,20 @@ class dRMSD(nn.Module):
         return drmsd(predicted, actual, mask=mask)
 
 
+class AngularLoss(nn.Module):
+    def __init__(self):
+        super(AngularLoss, self).__init__()
+
+    def forward(self, predicted, actual, mask=None):
+        return calc_angular_difference(predicted, actual, mask=mask)
+
+
 class RGN(nn.Module):
-    def __init__(self, d_in, linear_out=20, h=800, num_layers=2, alphabet_size=20):
+    def __init__(self, d_in, linear_out=20, h=800, num_layers=2, alphabet_size=20, window_size=None):
         super(RGN, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = h
+        self.window_size = window_size
 
         self.angularization_layer = Angularization(d_in=h, dih_out=3, alphabet_size=alphabet_size)
 
@@ -74,7 +84,7 @@ class RGN(nn.Module):
         yield from self.lstm.parameters(recurse=recurse)
         yield from self.angularization_layer.parameters(recurse=recurse)
 
-    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD', verbose=False, profile_gpu=False):
+    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD', verbose=False, profile_gpu=False, loss='dRMSD'):
         if profile_gpu:
             from gpu_profile import gpu_profile
             gpu_profile(frame=sys._getframe(), event='line', arg=None)
@@ -82,9 +92,12 @@ class RGN(nn.Module):
         if optimiz == 'Adam':
             optimizer = optim.Adam(self.parameters(), lr=9e-2)
         criterion = dRMSD()
+        if loss == 'Angular':
+            criterion = AngularLoss()
         torch.autograd.set_detect_anomaly = True
 
-        train_loader = DataLoader(ProteinNetDataset(pn_path), batch_size=batch_size, shuffle=True, pin_memory=True)
+        dataset = ProteinNetDataset(pn_path) if self.window_size is None else ProteinNetWindowedDataset(pn_path)
+        train_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
 
         for epoch in range(epochs):
             for batch_idx, pn_data in enumerate(train_loader):
@@ -97,8 +110,8 @@ class RGN(nn.Module):
                 l.backward()
                 optimizer.step()
                 if verbose:
-                    dump_tensors()
-                    # print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
+                    # dump_tensors()
+                    print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -106,7 +119,8 @@ class RGN(nn.Module):
                 torch.cuda.empty_cache()
 
     def test(self, pn_path):
-        test_loader = DataLoader(ProteinNetDataset(pn_path), pin_memory=True, batch_size=1)
+        dataset = ProteinNetDataset(pn_path) if self.window_size is None else ProteinNetWindowedDataset(pn_path)
+        test_loader = DataLoader(dataset=dataset, pin_memory=True, batch_size=1)
         test_loss = 0
         predictions = []
         with torch.no_grad():
@@ -125,5 +139,5 @@ class RGN(nn.Module):
 
     def _save_prediction_to_file(self, predictions, out):
         outf = open(out, 'w+')
-        outf = pickle.dump(predictions, out)
+        pickle.dump(predictions, outf)
         outf.close()
