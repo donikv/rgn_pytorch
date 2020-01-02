@@ -48,6 +48,14 @@ class dRMSD(nn.Module):
         return drmsd(predicted, actual, mask=mask)
 
 
+class AngularLoss(nn.Module):
+    def __init__(self):
+        super(AngularLoss, self).__init__()
+
+    def forward(self, predicted, actual, mask=None):
+        return calc_angular_difference(predicted, actual, mask=mask)
+
+
 class RGN(nn.Module):
     def __init__(self, d_in, linear_out=20, h=800, num_layers=2, alphabet_size=20, window_size=None):
         super(RGN, self).__init__()
@@ -77,13 +85,15 @@ class RGN(nn.Module):
         yield from self.lstm.parameters(recurse=recurse)
         yield from self.angularization_layer.parameters(recurse=recurse)
 
-    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD', verbose=False, profile_gpu=False):
+    def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD', verbose=False, profile_gpu=False, loss='dRMSD'):
         if profile_gpu:
             gpu_profile(frame=sys._getframe(), event='line', arg=None)
         optimizer = optim.SGD(self.parameters(), lr=1e-4)
         if optimiz == 'Adam':
             optimizer = optim.Adam(self.parameters(), lr=9e-2)
         criterion = dRMSD()
+        if loss == 'Angular':
+            criterion = AngularLoss()
         torch.autograd.set_detect_anomaly = True
 
         dataset = ProteinNetDataset(pn_path) if self.window_size is None else ProteinNetWindowedDataset(pn_path)
@@ -100,8 +110,8 @@ class RGN(nn.Module):
                 l.backward()
                 optimizer.step()
                 if verbose:
-                    dump_tensors()
-                    # print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
+                    # dump_tensors()
+                    print(list(map(lambda x: (x.grad, len(x.grad)), self.parameters())))
                 if batch_idx % log_interval == 0:
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),

@@ -3,6 +3,7 @@ from copy import deepcopy
 
 import numpy as np
 import torch
+import math
 
 
 def move_to_gpu(self):
@@ -56,8 +57,8 @@ def drmsd(u, v, mask=None):
         mask_b = mask[:, batch]
         diff = calculate_pairwise_distances(u_b, v_b, mask_b)
         diffs = torch.cat([diffs, diff.norm(dim=0, keepdim=True)/(L*(L-1))])
-    norm = diffs.norm(dim=0)
     return diffs
+
 
 def calculate_pairwise_distances(u, v, mask=None):
     #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
@@ -78,6 +79,41 @@ def calculate_pairwise_distances(u, v, mask=None):
         diffs = torch.cat([diffs, diff])
     return diffs
 
+
+def angular_loss(u, v, mask=None):
+    #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
+    diffs = torch.zeros(0, requires_grad=True).move_to_gpu()
+    L = u.shape[0]/3
+    for batch in range(u.shape[1]):
+        u_b, v_b = u[:, batch], v[:, batch]
+        mask_b = mask[:, batch]
+        diff = calc_angular_difference(u_b, v_b, mask_b)
+        diffs = torch.cat([diffs, diff.norm(dim=0, keepdim=True)/(L*(L-1))])
+    return diffs
+
+
+def calc_angular_difference(a1, a2, mask=None):
+    a1 = a1.transpose(0, 1).contiguous()
+    a2 = a2.transpose(0, 1).contiguous()
+    mask = mask.transpose(0, 1).contiguous()
+    diffs = torch.zeros(0, requires_grad=True).move_to_gpu()
+    for idx, _ in enumerate(a1):
+        assert a1[idx].shape[1] == 3
+        assert a2[idx].shape[1] == 3
+        a1_element = a1[idx]
+        a2_element = a2[idx]
+        if mask is not None:
+            mask_element = mask[idx].unsqueeze(-1)
+            a1_element = a1_element.float() * mask_element.float()
+            a2_element = a2_element.float() * mask_element.float()
+        a1_element = a1_element.view(-1, 1)
+        a2_element = a2_element.view(-1, 1)
+        distance = torch.min(torch.abs(a2_element - a1_element),
+                      torch.tensor(2 * math.pi) - torch.abs(a2_element - a1_element)
+                      )
+        diff = torch.sqrt(torch.abs(distance * distance))
+        diffs = torch.cat([diffs, diff.norm(dim=0, keepdim=True)])
+    return diffs
 
 def calculate_coordinates(pred_torsions, r=BOND_LENGTHS, theta=BOND_ANGLES):
     #type: (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
