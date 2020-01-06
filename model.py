@@ -1,5 +1,4 @@
 import sys
-from gpu_profile import gpu_profile
 from collections import OrderedDict
 
 import torch
@@ -87,6 +86,7 @@ class RGN(nn.Module):
 
     def train(self, pn_path, epochs=30, log_interval=10, batch_size=32, optimiz='SGD', verbose=False, profile_gpu=False, loss='dRMSD'):
         if profile_gpu:
+            from gpu_profile import gpu_profile
             gpu_profile(frame=sys._getframe(), event='line', arg=None)
         optimizer = optim.SGD(self.parameters(), lr=1e-4)
         if optimiz == 'Adam':
@@ -138,6 +138,6 @@ class RGN(nn.Module):
             self._save_prediction_to_file(predictions, 'predictions.pickle')
 
     def _save_prediction_to_file(self, predictions, out):
-        outf = open(out, 'w+')
+        outf = open(out, 'wb+')
         pickle.dump(predictions, outf)
         outf.close()
