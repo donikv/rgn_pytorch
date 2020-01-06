@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from io import StringIO
+from functools import reduce
 
 import torch
 from torch import LongTensor
@@ -23,7 +24,7 @@ aa2ix= {'G': 0,'P': 1,'A': 2,'V': 3,'L': 4,
           'N': 15,'E': 16,'D': 17,'S': 18,'T': 19}
 
 HYDRO = { 'I':4.5,'V':4.2,'L':3.8,'F':2.8,'C':2.5,'M':1.9,'A':1.8,'G':-0.4,'T':-0.7,'S':-0.8,'W':-0.9,'Y':-1.3,'P':-1.6,'H':-3.2,'E':-3.5,'Q':-3.5,'D':-3.5,'N':-3.5,'K':-3.9,'R':-4.5 }
-
+HYDRO_SUM = reduce(lambda x, value:abs(x) + abs(value), HYDRO.values(), 0)
 
 def get_size(obj, seen=None):
     """Recursively finds size of objects"""
@@ -123,9 +124,9 @@ def load_data(pn_path):
 
         # lastly convert the mask to indices
         msk_idx = np.array(list(map(lambda x: [1, 1, 1] if x[1] == '+' else [0, 0, 0], enumerate(masks[i])))).flatten()
-
+        hydro = list(map(lambda y: HYDRO[y]/HYDRO_SUM, seq))
         # bracket id or get "setting an array element with a sequence"
-        zt = np.array([[id], seq, pssmi, xyzi, msk_idx])
+        zt = np.array([[id], seq, pssmi, xyzi, msk_idx, hydro])
         data[i] = zt
     return data
 
@@ -146,7 +147,7 @@ def pad_and_embed(data):
     pssms = list(map(lambda x: x[2], data))
     coords = list(map(lambda x: x[3], data))
     mask = list(map(lambda x: x[4], data))
-    hydro = list(map(lambda x: list(map(lambda y: HYDRO[y], x[1])), data))
+    hydro = list(map(lambda x: x[5], data))
 
     vocab = ['<pad>'] + sorted(set([char for char in residue_letter_codes.values()]))
     vectorized_seqs = [[vocab.index(tok) for tok in seq] for seq in seqs]
@@ -162,7 +163,7 @@ def pad_and_embed(data):
 
     for idx, (seq, seqlen) in enumerate(zip(vectorized_seqs, seq_lengths)):
         seq_tensor[idx, :seqlen] = LongTensor(seq)
-        extended_hydro[idx, :seqlen] = torch.tensor(hydro[idx])
+        extended_hydro[idx, :seqlen] = torch.tensor([hydro[idx]])
         extended_pssm[idx, :seqlen] = pssms[idx]
         extended_coords[idx, :seqlen*3] = coords[idx]
         extended_mask[idx, :seqlen*3] = mask[idx]
@@ -178,7 +179,7 @@ def pad_and_embed(data):
         data[idx][2] = extended_pssm[idx]
         data[idx][3] = extended_coords[idx]
         data[idx][4] = extended_mask[idx]
-        data[idx].append(extended_hydro[idx])
+        data[idx][5] = extended_hydro[idx].detach().numpy()
     return data
 
 
@@ -224,6 +225,7 @@ class ProteinNetDataset(Dataset):
     def __getitem__(self, idx):
         name, sequence, pssm, coords, mask, hydro = self.data[idx]
         length = len(sequence)
+        hydro = np.array(list(map(lambda x: np.array([x]), hydro)))
         #sequence_vec = encode_protein_padded(sequence, self.max_len)
         seq_pssm = np.concatenate([sequence, pssm, hydro], axis=1)
 

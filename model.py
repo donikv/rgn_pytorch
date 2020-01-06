@@ -138,6 +138,6 @@ class RGN(nn.Module):
             self._save_prediction_to_file(predictions, 'predictions.pickle')
 
     def _save_prediction_to_file(self, predictions, out):
-        outf = open(out, 'w+')
+        outf = open(out, 'wb+')
         pickle.dump(predictions, outf)
         outf.close()
