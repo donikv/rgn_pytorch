@@ -18,11 +18,12 @@ setattr(torch.Tensor, 'move_to_gpu', move_to_gpu)
 from numpy.core.multiarray import ndarray
 from torch import nn
 
-
 NUM_DIMENSIONS = 3
 NUM_DIHEDRALS = 3
 BOND_LENGTHS = torch.tensor([145.801, 152.326, 132.868]).move_to_gpu()
 BOND_ANGLES = torch.tensor([2.124, 1.941, 2.028]).move_to_gpu()
+
+
 # BOND_LENGTHS[0], BOND_LENGTHS[1], BOND_LENGTHS[2] =
 # BOND_ANGLES[0], BOND_ANGLES[1], BOND_ANGLES[2] =
 
@@ -49,19 +50,19 @@ def calculate_dihedrals(p, alphabet):
 
 
 def drmsd(u, v, mask=None):
-    #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
+    # type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
     diffs = torch.zeros(0, requires_grad=True).move_to_gpu()
-    L = u.shape[0]/3
     for batch in range(u.shape[1]):
         u_b, v_b = u[:, batch], v[:, batch]
+        L = u_b.shape[0] / 3
         mask_b = mask[:, batch]
         diff = calculate_pairwise_distances(u_b, v_b, mask_b)
-        diffs = torch.cat([diffs, diff.norm(dim=0, keepdim=True)/(L*(L-1))])
+        diffs = torch.cat([diffs, diff.norm(dim=0, keepdim=True) / (L * (L - 1))])
     return diffs
 
 
 def calculate_pairwise_distances(u, v, mask=None):
-    #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
+    # type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
     """Calcualtes the pairwise distances between all atoms in the given tensor
 
     Args:
@@ -75,24 +76,31 @@ def calculate_pairwise_distances(u, v, mask=None):
     for atom_id in range(u.shape[0]):
         if mask is not None and mask[atom_id] == 0:
             continue
-        diff = ((u-u[atom_id]).norm(dim=1)-(v-v[atom_id]).float().norm(dim=1)).norm(keepdim=True, dim=0)  # [3L, 1]
+        diff = ((u - u[atom_id]).norm(dim=1) - (v - v[atom_id]).float().norm(dim=1)).norm(keepdim=True,
+                                                                                          dim=0)  # [3L, 1]
         diffs = torch.cat([diffs, diff])
     return diffs
 
 
 def angular_loss(u, v, mask=None):
-    #type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
-    diffs = torch.zeros(0, requires_grad=True).move_to_gpu()
-    L = u.shape[0]/3
-    for batch in range(u.shape[1]):
-        u_b, v_b = u[:, batch], v[:, batch]
-        mask_b = mask[:, batch]
-        diff = calc_angular_difference(u_b, v_b, mask_b)
-        diffs = torch.cat([diffs, diff.norm(dim=0, keepdim=True)/(L*(L-1))])
-    return diffs
+    return _calculate_generic_loss(u, v, mask, calc_angular_difference)
 
 
-def calc_angular_difference(a1, a2, mask=None):
+def calc_angular_difference(a1, a2):
+    distance = torch.min(torch.abs(a1 - a2),
+                         torch.tensor(2 * math.pi) - torch.abs(a2 - a1)
+                         )
+    diff = torch.sqrt(torch.abs(distance * distance))
+    return diff
+
+def calculate_tm_score(a1, a2):
+    L_t = a2.shape[0] / 3
+    L_a = a1.shape[0] / 3
+
+
+
+def _calculate_generic_loss(a1, a2, mask=None, loss_fn=calc_angular_difference):
+    # type: (torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
     a1 = a1.transpose(0, 1).contiguous()
     a2 = a2.transpose(0, 1).contiguous()
     mask = mask.transpose(0, 1).contiguous()
@@ -106,17 +114,14 @@ def calc_angular_difference(a1, a2, mask=None):
             mask_element = mask[idx].unsqueeze(-1)
             a1_element = a1_element.float() * mask_element.float()
             a2_element = a2_element.float() * mask_element.float()
-        a1_element = a1_element.view(-1, 1)
-        a2_element = a2_element.view(-1, 1)
-        distance = torch.min(torch.abs(a2_element - a1_element),
-                      torch.tensor(2 * math.pi) - torch.abs(a2_element - a1_element)
-                      )
-        diff = torch.sqrt(torch.abs(distance * distance))
+
+        diff = loss_fn(a1_element, a2_element)
         diffs = torch.cat([diffs, diff.norm(dim=0, keepdim=True)])
     return diffs
 
+
 def calculate_coordinates(pred_torsions, r=BOND_LENGTHS, theta=BOND_ANGLES):
-    #type: (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
+    # type: (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor) -> (torch.Tensor)
     num_steps = pred_torsions.shape[0]
     batch_size = pred_torsions.shape[1]
     num_dihedrals = 3
@@ -165,4 +170,3 @@ def geometric_unit(pred_coords, pred_torsions, bond_angles, bond_lens):
         pred_coords = torch.cat([pred_coords, D.view(1, -1, 3)])
 
     return pred_coords
-
