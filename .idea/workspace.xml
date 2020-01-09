@@ -3,11 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="bce9793a-9373-43f9-9049-73486aea4c2e" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model.pickle" beforeDir="false" afterPath="$PROJECT_DIR$/model.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/model_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model_test_server.py" beforeDir="false" afterPath="$PROJECT_DIR$/model_test_server.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/predictions.pickle" beforeDir="false" afterPath="$PROJECT_DIR$/predictions.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/run_docker.sh" beforeDir="false" afterPath="$PROJECT_DIR$/run_docker.sh" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -29,7 +24,7 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../../Neuronske mreze/Projekt/Projekt2.py" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.path.for.package.eslint" value="project" />
@@ -49,7 +44,26 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.model_test">
+  <component name="RunManager" selected="Python.Projekt2">
+    <configuration name="Projekt2" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="rgn_pytorch" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../../Neuronske mreze/Projekt" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../../Neuronske mreze/Projekt/Projekt2.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration default="true" type="PythonConfigurationType" factoryName="Python">
       <module name="rgn_pytorch" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -118,6 +132,7 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.Projekt2" />
         <item itemvalue="Python.model_test" />
         <item itemvalue="Python.proteinnet_dssp" />
       </list>
@@ -141,6 +156,8 @@
       <workItem from="1578247815083" duration="4139000" />
       <workItem from="1578254789829" duration="12000" />
       <workItem from="1578299490205" duration="6145000" />
+      <workItem from="1578426508072" duration="1767000" />
+      <workItem from="1578467606444" duration="5268000" />
     </task>
     <servers />
   </component>
