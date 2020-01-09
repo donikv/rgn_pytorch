@@ -6,7 +6,7 @@ from io import StringIO
 from torch.utils.data import DataLoader
 # from tqdm import tqdm
 # import bcolz
-# from data_utlis import ProteinNetDataset
+from data_utlis import ProteinNetDataset
 from pathlib import Path
 
 from model import RGN
@@ -18,9 +18,15 @@ home = str(Path.home())
 # pn_path = home + '/casp7/training_30'
 pn_path = home + '\\Downloads\\casp7\\casp7\\testing'
 pn_test = os.curdir + '/../rgn_pytorch/data/text_sample'
-model = RGN(43, h=300)
+
+
+from config_builder import build_configs
+
+mc, tc = build_configs("./gru.config")
+
+model = RGN(mc)
 model.cuda(0)
-model.train(pn_path, log_interval=1, optimiz='Adam', epochs=10, profile_gpu=True)
+model.train(tc)
 model.test(pn_test)
 f = open("model.pickle", "wb")
 torch.save(model, f)

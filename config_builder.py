@@ -1,4 +1,8 @@
 import torch.nn as nn
+import torch.optim as optim
+from model import AngularLoss, dRMSD
+from data_utlis import ProteinNetDataset
+from torch.utils.data import DataLoader
 
 class ModelConfig():
 
@@ -28,7 +32,13 @@ class ModelConfig():
 
 class TrainingConfig():
 
-    def __init__(self, train_loader, test_loader, epochs=30, log_interval=10, batch_size=32, optimizer='SGD', verbose=False, profile_gpu=False, loss='dRMSD'):
+    def __init__(self, pn_train, pn_test, epochs=30, log_interval=10, batch_size=32, optimizer='SGD', verbose=False, profile_gpu=False, loss='dRMSD', lr=1e-4):
+        
+        train_dataset = ProteinNetDataset(pn_train) #if self.window_size is None else ProteinNetWindowedDataset(pn_path)
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
+        test_dataset = ProteinNetDataset(pn_test) #if self.window_size is None else ProteinNetWindowedDataset(pn_path)
+        test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=True, pin_memory=True)
+
         self.loaders = {'train': train_loader, 'test': test_loader}
         self.epochs = epochs
         self.log_interval = log_interval 
@@ -37,5 +47,29 @@ class TrainingConfig():
         self.optimizer = optimizer
         self.verbose = verbose
         self.profile_gpu = profile_gpu
+        self.lr = lr
+        if profile_gpu:
+            from gpu_profile import gpu_profile
+            import sys
+            gpu_profile(frame=sys._getframe(), event='line', arg=None)
 
+    def get_optimizer(self, parameters):
+        if self.optimizer == 'Adam':
+            return optim.Adam(parameters, lr=self.lr)
 
+        return optim.SGD(parameters, lr=self.lr)
+    
+    def get_loss(self):
+        if self.loss == 'Angular':
+            return AngularLoss()
+        return dRMSD()
+
+def build_configs(f):
+    import configparser
+    config = configparser.ConfigParser()
+    config.read(f)
+    model_params = config['MODEL']
+    train_params = config['TRAINING']
+    model_config = ModelConfig(int(model_params['in']), int(model_params['linear_out']), int(model_params['cell']), int(model_params['num_layers']), int(model_params['alphabet_size']), int(model_params['hidden_size']), model_params.getboolean('bidirectional'), model_params.getfloat('dropout'))
+    train_config = TrainingConfig(train_params['train_path'], train_params['test_path'], int(train_params['epochs']), int(train_params['log_interval']), int(train_params['batch_size']), train_params['optimizer'], loss=train_params['loss'], lr=train_params.getfloat('lr'))
+    return (model_config, train_config)

@@ -13,14 +13,16 @@ from model import RGN
 import sys
 #from gpu_profile import gpu_profile
 
-#sys.settrace(gpu_profile)
-home = str(Path.home())
-pn_train = home + '/casp7/training_30'
-pn_test = home + '/casp7/testing'
-model = RGN(43, h=400)
+
+from config_builder import build_configs
+
+mc, tc = build_configs("./gru.config")
+
+model = RGN(mc)
 model.cuda(0)
-model.train(pn_train, log_interval=1, epochs=5)
+model.train(tc)
+model.test(pn_test)
 f = open("model.pickle", "wb")
 torch.save(model, f)
-model.test(pn_test)
 exit()
+
