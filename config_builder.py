@@ -70,6 +70,6 @@ def build_configs(f):
     config.read(f)
     model_params = config['MODEL']
     train_params = config['TRAINING']
-    model_config = ModelConfig(int(model_params['in']), int(model_params['linear_out']), int(model_params['cell']), int(model_params['num_layers']), int(model_params['alphabet_size']), int(model_params['hidden_size']), model_params.getboolean('bidirectional'), model_params.getfloat('dropout'))
+    model_config = ModelConfig(int(model_params['in']), int(model_params['linear_out']), model_params['cell'], int(model_params['num_layers']), int(model_params['alphabet_size']), int(model_params['hidden_size']), model_params.getboolean('bidirectional'), model_params.getfloat('dropout'))
     train_config = TrainingConfig(train_params['train_path'], train_params['test_path'], int(train_params['epochs']), int(train_params['log_interval']), int(train_params['batch_size']), train_params['optimizer'], loss=train_params['loss'], lr=train_params.getfloat('lr'))
     return (model_config, train_config)

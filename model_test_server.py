@@ -16,7 +16,7 @@ import sys
 
 from config_builder import build_configs
 
-mc, tc = build_configs("./gru.config")
+mc, tc = build_configs("./gru_server.config")
 
 model = RGN(mc)
 model.cuda(0)
