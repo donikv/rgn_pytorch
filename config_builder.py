@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.optim as optim
-from model import AngularLoss, dRMSD
+from losses import *
 from data_utlis import ProteinNetDataset
 from torch.utils.data import DataLoader
 

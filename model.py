@@ -17,6 +17,7 @@ from geometric_ops import *
 from simple_profile import dump_tensors
 import pickle
 from config_builder import *
+from losses import *
 
 class Angularization(nn.Module):
     def __init__(self, d_in=800, dih_out=3, linear_out=20, alphabet_size=20):
@@ -39,21 +40,6 @@ class Angularization(nn.Module):
         yield self.alphabet
         yield from self.model.parameters(recurse=recurse)
 
-
-class dRMSD(nn.Module):
-    def __init__(self):
-        super(dRMSD, self).__init__()
-
-    def forward(self, predicted, actual, mask=None):
-        return drmsd(predicted, actual, mask=mask)
-
-
-class AngularLoss(nn.Module):
-    def __init__(self):
-        super(AngularLoss, self).__init__()
-
-    def forward(self, predicted, actual, mask=None):
-        return calc_angular_difference(predicted, actual, mask=mask)
 
 
 class RGN(nn.Module):
