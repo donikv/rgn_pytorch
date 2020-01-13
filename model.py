@@ -59,8 +59,8 @@ class RGN(nn.Module):
         x = x.float().transpose(0, 1).contiguous()
         h0 = torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)).move_to_gpu().requires_grad_(True)
         c0 = torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)).move_to_gpu().requires_grad_(True)
-
-        lstm_out, _ = self.lstm(x, (h0, c0))
+        initial = (h0,c0) if isinstance(self.lstm, nn.LSTM) else h0
+        lstm_out, _ = self.lstm(x, initial)
 
         ang_out = self.angularization_layer(lstm_out)
         return calculate_coordinates(ang_out)
@@ -74,7 +74,7 @@ class RGN(nn.Module):
         criterion = config.get_loss()
         torch.autograd.set_detect_anomaly = True
 
-        train_loader = config.loaders['train_loader']
+        train_loader = config.loaders['train']
         for epoch in range(config.epochs):
             for batch_idx, pn_data in enumerate(train_loader):
                 data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1).move_to_gpu()
@@ -95,16 +95,17 @@ class RGN(nn.Module):
                 torch.cuda.empty_cache()
 
     def test(self, config):
-        test_loader = config.loaders['test_loader']
+        test_loader = config.loaders['test']
         test_loss = 0
-        predictions = []
+        predictions = [] 
+        criterion = config.get_loss()
         with torch.no_grad():
             for pn_data in test_loader:
                 name = pn_data['name']
                 data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1).move_to_gpu()
                 data, target = data.move_to_gpu(), target.transpose(0, 1).move_to_gpu()
                 output = self(data)
-                curr_loss = self.error(output, target, mask).item()  # sum up batch loss
+                curr_loss = criterion(output, target, mask).item()  # sum up batch loss
                 predictions.append((name, output.detach(), target.detach()))
                 print('Error on {}: {}'.format(name, curr_loss))
                 test_loss += curr_loss
