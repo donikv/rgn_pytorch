@@ -57,8 +57,11 @@ class RGN(nn.Module):
         lens = list(map(len, x))
         batch_sz = len(lens)
         x = x.float().transpose(0, 1).contiguous()
-        h0 = torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)).move_to_gpu().requires_grad_(True)
-        c0 = torch.zeros((self.num_layers * 2, batch_sz, self.hidden_size)).move_to_gpu().requires_grad_(True)
+        h0 = torch.FloatTensor((self.num_layers * 2, batch_sz, self.hidden_size)).uniform_(-0.01, 0.01).move_to_gpu().requires_grad_(True)
+
+        c0 = torch.FloatTensor((self.num_layers * 2, batch_sz, self.hidden_size)).uniform_(-0.01, 0.01).move_to_gpu().requires_grad_(True)
+
+
         initial = (h0,c0) if isinstance(self.lstm, nn.LSTM) else h0
         lstm_out, _ = self.lstm(x, initial)
 
