@@ -47,7 +47,7 @@ class RGN(nn.Module):
         super(RGN, self).__init__()
         self.num_layers = config.num_layers
         self.hidden_size = config.hidden_size
-        self.window_size = config.window_size
+        self.window_size = window_size
 
         self.angularization_layer = Angularization(d_in=config.hidden_size, dih_out=3, alphabet_size=config.alphabet_size)
 
