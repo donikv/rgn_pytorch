@@ -78,6 +78,7 @@ class RGN(nn.Module):
         torch.autograd.set_detect_anomaly = True
 
         train_loader = config.loaders['train']
+        valid_loader = config.loaders['valid']
         for epoch in range(config.epochs):
             for batch_idx, pn_data in enumerate(train_loader):
                 data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1).move_to_gpu()
@@ -96,6 +97,20 @@ class RGN(nn.Module):
                         epoch, batch_idx * len(data), len(train_loader.dataset),
                                100. * batch_idx / len(train_loader), l.item()))
                 torch.cuda.empty_cache()
+            with torch.no_grad():
+                for batch_idx, pn_data in enumerate(valid_loader):
+                    data, target, mask = pn_data['sequence'], pn_data['coords'], pn_data['mask'].transpose(0, 1).move_to_gpu()
+                    data, target = data.move_to_gpu(), target.transpose(0, 1).move_to_gpu()
+                    net_out = self(data)
+                    loss = criterion(net_out, target, mask)
+                    l = loss.mean()
+                    if batch_idx % config.log_interval == 0:
+                        print('Valid Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                            epoch, batch_idx * len(data), len(valid_loader.dataset),
+                                   100. * batch_idx / len(valid_loader), l.item()))
+                    torch.cuda.empty_cache()
+
+
 
     def test(self, config):
         test_loader = config.loaders['test']

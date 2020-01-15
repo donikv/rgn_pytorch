@@ -32,14 +32,16 @@ class ModelConfig():
 
 class TrainingConfig():
 
-    def __init__(self, pn_train, pn_test, epochs=30, log_interval=10, batch_size=32, optimizer='SGD', verbose=False, profile_gpu=False, loss='dRMSD', lr=1e-4):
+    def __init__(self, pn_train, pn_valid, pn_test, epochs=30, log_interval=10, batch_size=32, optimizer='SGD', verbose=False, profile_gpu=False, loss='dRMSD', lr=1e-4):
         
         train_dataset = ProteinNetDataset(pn_train) #if self.window_size is None else ProteinNetWindowedDataset(pn_path)
         train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
+        valid_dataset = ProteinNetDataset(pn_valid) #if self.window_size is None else ProteinNetWindowedDataset(pn_path)
+        valid_loader = DataLoader(dataset=valid_dataset, batch_size=batch_size, shuffle=True, pin_memory=True)
         test_dataset = ProteinNetDataset(pn_test) #if self.window_size is None else ProteinNetWindowedDataset(pn_path)
         test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=True, pin_memory=True)
 
-        self.loaders = {'train': train_loader, 'test': test_loader}
+        self.loaders = {'train': train_loader, 'test': test_loader, 'valid': valid_loader}
         self.epochs = epochs
         self.log_interval = log_interval 
         self.batch_size = batch_size
@@ -71,5 +73,5 @@ def build_configs(f):
     model_params = config['MODEL']
     train_params = config['TRAINING']
     model_config = ModelConfig(int(model_params['in']), int(model_params['linear_out']), model_params['cell'], int(model_params['num_layers']), int(model_params['alphabet_size']), int(model_params['hidden_size']), model_params.getboolean('bidirectional'), model_params.getfloat('dropout'))
-    train_config = TrainingConfig(train_params['train_path'], train_params['test_path'], int(train_params['epochs']), int(train_params['log_interval']), int(train_params['batch_size']), train_params['optimizer'], loss=train_params['loss'], lr=train_params.getfloat('lr'))
+    train_config = TrainingConfig(train_params['train_path'], train_params['valid_path'],train_params['test_path'], int(train_params['epochs']), int(train_params['log_interval']), int(train_params['batch_size']), train_params['optimizer'], loss=train_params['loss'], lr=train_params.getfloat('lr'))
     return (model_config, train_config)
